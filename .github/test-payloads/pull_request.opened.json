@@ -1,0 +1,49 @@
+{
+  "action": "opened",
+  "number": 1,
+  "pull_request": {
+    "url": "https://api.github.com/repos/owner/repo/pulls/1",
+    "id": 123456789,
+    "number": 1,
+    "state": "open",
+    "title": "Test PR from act",
+    "user": {
+      "login": "testuser",
+      "id": 1111111
+    },
+    "body": "This is a test PR.",
+    "assignees": [
+      { "login": "5EUS", "id": 2222222 }
+    ],
+    "requested_reviewers": [
+      { "login": "AaronCII", "id": 3333333 }
+    ],
+    "requested_teams": [],
+    "html_url": "https://github.com/owner/repo/pull/1"
+  },
+  "issue": {
+    "url": "https://api.github.com/repos/owner/repo/issues/1",
+    "id": 123456789,
+    "number": 1,
+    "state": "open",
+    "title": "Test PR from act",
+    "user": {
+      "login": "testuser",
+      "id": 1111111
+    },
+    "body": "This is a test PR.",
+    "assignees": [
+      { "login": "5EUS", "id": 2222222 }
+    ],
+    "html_url": "https://github.com/owner/repo/pull/1"
+  },
+  "repository": {
+    "id": 987654321,
+    "name": "repo",
+    "full_name": "owner/repo"
+  },
+  "sender": {
+    "login": "testuser",
+    "id": 1111111
+  }
+}
