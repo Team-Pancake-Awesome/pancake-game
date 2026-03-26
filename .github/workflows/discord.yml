@@ -64,23 +64,20 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DISCORD_USERNAME: "GitHub Bot"
           DISCORD_AVATAR: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
-          DISCORD_EMBEDS: >-
-            [{
-              "title": ${{ toJson(format('PR #{0}: {1}', steps.prmeta.outputs.number, steps.prmeta.outputs.title)) }},
-              "url": ${{ toJson(steps.prmeta.outputs.html_url) }},
-              "description": ${{ toJson(steps.prmeta.outputs.body != '' && steps.prmeta.outputs.body || 'No description provided.') }},
-              "color": 3447003,
-              "fields": [
-                {"name": "Author", "value": ${{ toJson(steps.prmeta.outputs.author) }}, "inline": true},
-                {"name": "Repo", "value": ${{ toJson(github.repository) }}, "inline": true},
-                {"name": "Assignees (Discord)", "value": ${{ toJson(steps.prmeta.outputs.discord_assignees) }}, "inline": false},
-                {"name": "Requested Reviewers (Discord)", "value": ${{ toJson(steps.prmeta.outputs.discord_reviewers) }}, "inline": false},
-                {"name": "Requested Teams", "value": ${{ toJson(steps.prmeta.outputs.reviewer_teams) }}, "inline": false}
-              ]
-            }]
+          DISCORD_ASSIGNEES: ${{ steps.prmeta.outputs.discord_assignees }}
+          DISCORD_REVIEWERS: ${{ steps.prmeta.outputs.discord_reviewers }}
+          DISCORD_AUTHOR: ${{ steps.prmeta.outputs.author }}
+          DISCORD_REPO: ${{ github.repository }}
+          DISCORD_URL: ${{ steps.prmeta.outputs.html_url }}
+          DISCORD_TITLE: ${{ steps.prmeta.outputs.title }}
+          DISCORD_BODY: ${{ steps.prmeta.outputs.body }}
+          DISCORD_TEAMS: ${{ steps.prmeta.outputs.reviewer_teams }}
         with:
           args: |
-            :new: PR **#{{ EVENT_PAYLOAD.pull_request.number }}** opened by **{{ EVENT_PAYLOAD.pull_request.user.login }}**
-            **URL:** {{ EVENT_PAYLOAD.pull_request.html_url }}
-            **Assignees:** {{ steps.prmeta.outputs.discord_assignees }}
-            **Reviewers:** {{ steps.prmeta.outputs.discord_reviewers }}
+            :new: PR **#${{ steps.prmeta.outputs.number }}** opened by **${{ env.DISCORD_AUTHOR }}**
+            **Title:** ${{ env.DISCORD_TITLE }}
+            **URL:** ${{ env.DISCORD_URL }}
+            **Assignees:** ${{ env.DISCORD_ASSIGNEES }}
+            **Reviewers:** ${{ env.DISCORD_REVIEWERS }}
+            **Teams:** ${{ env.DISCORD_TEAMS }}
+            **Body:** ${{ env.DISCORD_BODY }}
