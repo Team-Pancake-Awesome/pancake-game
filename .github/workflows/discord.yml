@@ -5,14 +5,13 @@ on:
     types: [opened]
 
 jobs:
-  assign-and-notify:
+  notify:
     runs-on: ubuntu-latest
     permissions:
       issues: write
       pull-requests: write
 
     steps:
-      # Step 1: Auto-assign PR
       - name: Auto-assign PR
         uses: pozil/auto-assign-issue@v1
         with:
@@ -20,55 +19,43 @@ jobs:
           assignees: 5EUS,AaronCII,bmike3,sabrina714,wfrasher,feltcutemightdelete
           numOfAssignee: 2
 
-      # Step 2: Fetch PR metadata and map GitHub usernames -> Discord mentions
       - name: Fetch PR metadata (assignees/reviewers)
         id: prmeta
         uses: actions/github-script@v7
         with:
           github-token: ${{ github.token }}
           script: |
+            const githubToDiscord = JSON.parse(process.env.ASSIGNEE_MAP || '{}');
             const { owner, repo } = context.repo;
             const pull_number = context.payload.pull_request.number;
 
-            // Map GitHub usernames to Discord mentions
-            const githubToDiscord = JSON.parse(process.env.ASSIGNEE_MAP || '{}');
-
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
-
-            const assignees = (pr.assignees ?? []).map(a => a.login).join(', ') || 'None';
-            const reviewers = (pr.requested_reviewers ?? []).map(r => r.login).join(', ') || 'None';
-            const teams = (pr.requested_teams ?? []).map(t => t.name).join(', ') || 'None';
 
             const discordAssignees = (pr.assignees ?? []).map(a => githubToDiscord[a.login] || a.login).join(', ') || 'None';
             const discordReviewers = (pr.requested_reviewers ?? []).map(r => githubToDiscord[r.login] || r.login).join(', ') || 'None';
 
-            core.setOutput('assignees', assignees);
-            core.setOutput('reviewers', reviewers);
-            core.setOutput('reviewer_teams', teams);
+            core.setOutput('number', pr.number);
+            core.setOutput('author', pr.user?.login || 'unknown');
+            core.setOutput('html_url', pr.html_url);
             core.setOutput('discord_assignees', discordAssignees);
             core.setOutput('discord_reviewers', discordReviewers);
-            core.setOutput('html_url', pr.html_url);
-            core.setOutput('title', pr.title);
-            core.setOutput('number', String(pr.number));
-            core.setOutput('author', pr.user?.login ?? 'unknown');
-            core.setOutput('body', pr.body ?? '');
 
-      # Step 3: Export outputs to environment variables for Discord action
-      - name: Export Discord variables
+      - name: Build Discord message
+        id: message
         run: |
-          echo "DISCORD_ASSIGNEES=${{ steps.prmeta.outputs.discord_assignees }}" >> "$GITHUB_ENV"
-          echo "DISCORD_REVIEWERS=${{ steps.prmeta.outputs.discord_reviewers }}" >> "$GITHUB_ENV"
+          MSG=":new: PR #${{ steps.prmeta.outputs.number }} opened by ${{ steps.prmeta.outputs.author }}"
+          MSG="${MSG}\n**URL:** ${{ steps.prmeta.outputs.html_url }}"
+          MSG="${MSG}\n**Assignees:** ${{ steps.prmeta.outputs.discord_assignees }}"
+          MSG="${MSG}\n**Reviewers:** ${{ steps.prmeta.outputs.discord_reviewers }}"
 
-      # Step 4: Notify Discord
+          echo "DISCORD_MESSAGE<<EOF" >> "$GITHUB_ENV"
+          echo "${MSG}" >> "$GITHUB_ENV"
+          echo "EOF" >> "$GITHUB_ENV"
+
       - name: Notify Discord
         uses: Ilshidur/action-discord@0.4.0
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          DISCORD_USERNAME: "GitHub Bot"
-          DISCORD_AVATAR: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+          DISCORD_MESSAGE: ${{ env.DISCORD_MESSAGE }}
         with:
-          args: |
-            :new: PR **#{{ EVENT_PAYLOAD.pull_request.number }}** opened by **{{ EVENT_PAYLOAD.pull_request.user.login }}**
-            **URL:** {{ EVENT_PAYLOAD.pull_request.html_url }}
-            **Assignees:** {{ env.DISCORD_ASSIGNEES }}
-            **Reviewers:** {{ env.DISCORD_REVIEWERS }}
+          args: "{{ DISCORD_MESSAGE }}"
