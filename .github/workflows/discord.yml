@@ -1,4 +1,5 @@
 name: Auto Assign & Discord Notify
+
 on:
   pull_request:
     types: [opened]
@@ -27,12 +28,12 @@ jobs:
             const { owner, repo } = context.repo;
             const pull_number = context.payload.pull_request.number;
 
-            // Parse the ASSIGNEE_MAP variable (should be a JSON string)
+            // Parse ASSIGNEE_MAP variable (already exists in env)
             let githubToDiscord = {};
             try {
               githubToDiscord = JSON.parse(process.env.ASSIGNEE_MAP || '{}');
             } catch (e) {
-              core.warning('Failed to parse ASSIGNEE_MAP variable: ' + e.message);
+              core.warning('Failed to parse ASSIGNEE_MAP: ' + e.message);
             }
 
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
@@ -41,7 +42,7 @@ jobs:
             const reviewers = (pr.requested_reviewers ?? []).map(r => r.login).join(', ') || 'None';
             const teams = (pr.requested_teams ?? []).map(t => t.name).join(', ') || 'None';
 
-            // Map to Discord tags for notification
+            // Map GitHub usernames to Discord mentions
             const discordAssignees = (pr.assignees ?? []).map(a => githubToDiscord[a.login] || a.login).join(', ') || 'None';
             const discordReviewers = (pr.requested_reviewers ?? []).map(r => githubToDiscord[r.login] || r.login).join(', ') || 'None';
 
@@ -55,8 +56,6 @@ jobs:
             core.setOutput('number', String(pr.number));
             core.setOutput('author', pr.user?.login ?? 'unknown');
             core.setOutput('body', pr.body ?? '');
-        env:
-          ASSIGNEE_MAP: ${{ vars.ASSIGNEE_MAP }}
 
       - name: Notify Discord
         uses: Ilshidur/action-discord@0.4.0
@@ -70,5 +69,5 @@ jobs:
           args: |
             :new: PR **#{{ EVENT_PAYLOAD.pull_request.number }}** opened by **{{ EVENT_PAYLOAD.pull_request.user.login }}**
             **URL:** {{ EVENT_PAYLOAD.pull_request.html_url }}
-            **Assignees:** ${{ env.DISCORD_ASSIGNEES }}
-            **Reviewers:** ${{ env.DISCORD_REVIEWERS }}
+            **Assignees:** {{ env.DISCORD_ASSIGNEES }}
+            **Reviewers:** {{ env.DISCORD_REVIEWERS }}
