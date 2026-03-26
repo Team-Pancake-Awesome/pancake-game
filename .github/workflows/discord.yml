@@ -28,13 +28,7 @@ jobs:
             const { owner, repo } = context.repo;
             const pull_number = context.payload.pull_request.number;
 
-            // Parse ASSIGNEE_MAP variable (already exists in env)
-            let githubToDiscord = {};
-            try {
-              githubToDiscord = JSON.parse(process.env.ASSIGNEE_MAP || '{}');
-            } catch (e) {
-              core.warning('Failed to parse ASSIGNEE_MAP: ' + e.message);
-            }
+            const githubToDiscord = JSON.parse(process.env.ASSIGNEE_MAP || '{}');
 
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
 
@@ -42,7 +36,6 @@ jobs:
             const reviewers = (pr.requested_reviewers ?? []).map(r => r.login).join(', ') || 'None';
             const teams = (pr.requested_teams ?? []).map(t => t.name).join(', ') || 'None';
 
-            // Map GitHub usernames to Discord mentions
             const discordAssignees = (pr.assignees ?? []).map(a => githubToDiscord[a.login] || a.login).join(', ') || 'None';
             const discordReviewers = (pr.requested_reviewers ?? []).map(r => githubToDiscord[r.login] || r.login).join(', ') || 'None';
 
