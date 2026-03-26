@@ -12,6 +12,7 @@ jobs:
       pull-requests: write
 
     steps:
+      # Step 1: Auto-assign PR
       - name: Auto-assign PR
         uses: pozil/auto-assign-issue@v1
         with:
@@ -19,6 +20,7 @@ jobs:
           assignees: 5EUS,AaronCII,bmike3,sabrina714,wfrasher,feltcutemightdelete
           numOfAssignee: 2
 
+      # Step 2: Fetch PR metadata and map GitHub usernames -> Discord mentions
       - name: Fetch PR metadata (assignees/reviewers)
         id: prmeta
         uses: actions/github-script@v7
@@ -28,6 +30,7 @@ jobs:
             const { owner, repo } = context.repo;
             const pull_number = context.payload.pull_request.number;
 
+            // Map GitHub usernames to Discord mentions
             const githubToDiscord = JSON.parse(process.env.ASSIGNEE_MAP || '{}');
 
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
@@ -50,14 +53,19 @@ jobs:
             core.setOutput('author', pr.user?.login ?? 'unknown');
             core.setOutput('body', pr.body ?? '');
 
+      # Step 3: Export outputs to environment variables for Discord action
+      - name: Export Discord variables
+        run: |
+          echo "DISCORD_ASSIGNEES=${{ steps.prmeta.outputs.discord_assignees }}" >> "$GITHUB_ENV"
+          echo "DISCORD_REVIEWERS=${{ steps.prmeta.outputs.discord_reviewers }}" >> "$GITHUB_ENV"
+
+      # Step 4: Notify Discord
       - name: Notify Discord
         uses: Ilshidur/action-discord@0.4.0
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DISCORD_USERNAME: "GitHub Bot"
           DISCORD_AVATAR: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
-          DISCORD_ASSIGNEES: ${{ steps.prmeta.outputs.discord_assignees }}
-          DISCORD_REVIEWERS: ${{ steps.prmeta.outputs.discord_reviewers }}
         with:
           args: |
             :new: PR **#{{ EVENT_PAYLOAD.pull_request.number }}** opened by **{{ EVENT_PAYLOAD.pull_request.user.login }}**
