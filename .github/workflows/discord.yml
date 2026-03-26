@@ -66,18 +66,9 @@ jobs:
           DISCORD_AVATAR: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
           DISCORD_ASSIGNEES: ${{ steps.prmeta.outputs.discord_assignees }}
           DISCORD_REVIEWERS: ${{ steps.prmeta.outputs.discord_reviewers }}
-          DISCORD_AUTHOR: ${{ steps.prmeta.outputs.author }}
-          DISCORD_REPO: ${{ github.repository }}
-          DISCORD_URL: ${{ steps.prmeta.outputs.html_url }}
-          DISCORD_TITLE: ${{ steps.prmeta.outputs.title }}
-          DISCORD_BODY: ${{ steps.prmeta.outputs.body }}
-          DISCORD_TEAMS: ${{ steps.prmeta.outputs.reviewer_teams }}
         with:
           args: |
-            :new: PR **#${{ steps.prmeta.outputs.number }}** opened by **${{ env.DISCORD_AUTHOR }}**
-            **Title:** ${{ env.DISCORD_TITLE }}
-            **URL:** ${{ env.DISCORD_URL }}
+            :new: PR **#{{ EVENT_PAYLOAD.pull_request.number }}** opened by **{{ EVENT_PAYLOAD.pull_request.user.login }}**
+            **URL:** {{ EVENT_PAYLOAD.pull_request.html_url }}
             **Assignees:** ${{ env.DISCORD_ASSIGNEES }}
             **Reviewers:** ${{ env.DISCORD_REVIEWERS }}
-            **Teams:** ${{ env.DISCORD_TEAMS }}
-            **Body:** ${{ env.DISCORD_BODY }}
