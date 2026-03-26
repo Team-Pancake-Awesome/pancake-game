@@ -1,11 +1,10 @@
 name: Auto Assign & Discord Notify
-
 on:
   pull_request:
     types: [opened]
 
 jobs:
-  notify:
+  assign-and-notify:
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -16,46 +15,58 @@ jobs:
         uses: pozil/auto-assign-issue@v1
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          assignees: 5EUS,AaronCII,bmike3,sabrina714,wfrasher,feltcutemightdelete
+          assignees: 5EUS,AaronCII,agruzberg,bmike3,DragonKnight914
           numOfAssignee: 2
 
-      - name: Fetch PR metadata (assignees/reviewers)
+      - name: Fetch PR metadata and map Discord tags
         id: prmeta
         uses: actions/github-script@v7
         with:
           github-token: ${{ github.token }}
           script: |
+            // Load GitHub -> Discord mapping
             const githubToDiscord = JSON.parse(process.env.ASSIGNEE_MAP || '{}');
+            
             const { owner, repo } = context.repo;
             const pull_number = context.payload.pull_request.number;
-
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
 
-            const discordAssignees = (pr.assignees ?? []).map(a => githubToDiscord[a.login] || a.login).join(', ') || 'None';
-            const discordReviewers = (pr.requested_reviewers ?? []).map(r => githubToDiscord[r.login] || r.login).join(', ') || 'None';
+            // Map GitHub assignees & reviewers to Discord mentions
+            const discordAssignees = (pr.assignees ?? [])
+              .map(a => githubToDiscord[a.login] || a.login)
+              .join(', ') || 'None';
+            
+            const discordReviewers = (pr.requested_reviewers ?? [])
+              .map(r => githubToDiscord[r.login] || r.login)
+              .join(', ') || 'None';
 
-            core.setOutput('number', pr.number);
-            core.setOutput('author', pr.user?.login || 'unknown');
-            core.setOutput('html_url', pr.html_url);
-            core.setOutput('discord_assignees', discordAssignees);
-            core.setOutput('discord_reviewers', discordReviewers);
+            const teams = (pr.requested_teams ?? []).map(t => t.name).join(', ') || 'None';
 
-      - name: Build Discord message
-        id: message
-        run: |
-          MSG=":new: PR #${{ steps.prmeta.outputs.number }} opened by ${{ steps.prmeta.outputs.author }}"
-          MSG="${MSG}\n**URL:** ${{ steps.prmeta.outputs.html_url }}"
-          MSG="${MSG}\n**Assignees:** ${{ steps.prmeta.outputs.discord_assignees }}"
-          MSG="${MSG}\n**Reviewers:** ${{ steps.prmeta.outputs.discord_reviewers }}"
+            // Build the embed JSON
+            const embed = [{
+              title: `PR #${pr.number}: ${pr.title}`,
+              url: pr.html_url,
+              description: pr.body || 'No description provided.',
+              color: 3447003,
+              fields: [
+                { name: "Author", value: pr.user?.login || 'unknown', inline: true },
+                { name: "Repo", value: `${owner}/${repo}`, inline: true },
+                { name: "Assignees", value: discordAssignees, inline: false },
+                { name: "Requested Reviewers", value: discordReviewers, inline: false },
+                { name: "Requested Teams", value: teams, inline: false }
+              ]
+            }];
 
-          echo "DISCORD_MESSAGE<<EOF" >> "$GITHUB_ENV"
-          echo "${MSG}" >> "$GITHUB_ENV"
-          echo "EOF" >> "$GITHUB_ENV"
+            core.setOutput('discord_embeds', JSON.stringify(embed));
+        env:
+          ASSIGNEE_MAP: ${{ vars.ASSIGNEE_MAP }}
 
       - name: Notify Discord
         uses: Ilshidur/action-discord@0.4.0
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          DISCORD_MESSAGE: ${{ env.DISCORD_MESSAGE }}
+          DISCORD_USERNAME: "GitHub Bot"
+          DISCORD_AVATAR: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+          DISCORD_EMBEDS: ${{ steps.prmeta.outputs.discord_embeds }}
         with:
-          args: "{{ DISCORD_MESSAGE }}"
+          args: "New PR opened!"
