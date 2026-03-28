@@ -1,7 +1,8 @@
 ﻿using UnityEngine;
 using System.IO.Ports;
-using System.Threading;
 using System.Linq;
+using System.Globalization;
+using System;
 
 public class ArduinoReader : MonoBehaviour
 {
@@ -19,6 +20,7 @@ public class ArduinoReader : MonoBehaviour
     [Header("Gyro Data")]
     public float pitch = 0f;
     public float roll = 0f;
+    public float gyroY = 0f;
 
     void Start()
     {
@@ -37,7 +39,9 @@ public class ArduinoReader : MonoBehaviour
             {
                 ReadTimeout = 500
             };
+
             serialPort.Open();
+            serialPort.DiscardInBuffer();
             Debug.Log("Opened: " + portName);
         }
         catch (System.Exception e)
@@ -58,23 +62,33 @@ public class ArduinoReader : MonoBehaviour
             if (string.IsNullOrEmpty(line))
                 return;
 
+            // Ignore calibration messages
+            if (line == "CALIBRATED")
+            {
+                Debug.Log("recalibrated");
+                return;
+            }
+
             string[] values = line.Split(',');
 
-            if (values.Length == 3)
+            if (values.Length >= 4)
             {
                 if (int.TryParse(values[0], out int parsedPot) &&
-                    float.TryParse(values[1], out float parsedPitch) &&
-                    float.TryParse(values[2], out float parsedRoll))
+                    float.TryParse(values[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedPitch) &&
+                    float.TryParse(values[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedRoll) &&
+                    float.TryParse(values[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedGyroY))
                 {
                     rawPot = parsedPot;
-
-                    // normalize pot
                     sensorValue = Mathf.Clamp01(rawPot / 1023f);
 
                     pitch = parsedPitch;
                     roll = parsedRoll;
+                    gyroY = parsedGyroY;
                 }
             }
+        }
+        catch (TimeoutException)
+        {
         }
         catch (System.Exception e)
         {
@@ -87,7 +101,6 @@ public class ArduinoReader : MonoBehaviour
         var ports = SerialPort.GetPortNames();
         Debug.Log("Ports found: " + string.Join(", ", ports));
 
-        // Windows: COM ports
         if (Application.platform == RuntimePlatform.WindowsEditor ||
             Application.platform == RuntimePlatform.WindowsPlayer)
         {
@@ -100,7 +113,6 @@ public class ArduinoReader : MonoBehaviour
             return winPreferred ?? ports.FirstOrDefault();
         }
 
-        // macOS: /dev/cu.usbmodem*, /dev/cu.usbserial*, /dev/cu.wchusbserial*
         if (Application.platform == RuntimePlatform.OSXEditor ||
             Application.platform == RuntimePlatform.OSXPlayer)
         {
@@ -112,7 +124,6 @@ public class ArduinoReader : MonoBehaviour
             return macPreferred ?? ports.FirstOrDefault();
         }
 
-        // Linux: common USB serial names
         if (Application.platform == RuntimePlatform.LinuxEditor ||
             Application.platform == RuntimePlatform.LinuxPlayer)
         {
