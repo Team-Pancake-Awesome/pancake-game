@@ -17,10 +17,15 @@ public class ArduinoReader : MonoBehaviour
     public float sensorValue = 0f;
     public int rawPot = 0;
 
+    [Header("Debug")]
+    [Tooltip("Ignore potentiometer input during play for debugging.")]
+    public bool ignorePot = false;
+
     [Header("Gyro Data")]
     public float pitch = 0f;
     public float roll = 0f;
-    public float gyroY = 0f;
+    public float gyroY = 0f; //
+    public float accelZ = 0f; // captures upward thrust
 
     void Start()
     {
@@ -71,19 +76,29 @@ public class ArduinoReader : MonoBehaviour
 
             string[] values = line.Split(',');
 
-            if (values.Length >= 4)
+            if (values.Length >= 5)
             {
-                if (int.TryParse(values[0], out int parsedPot) &&
+                 if (int.TryParse(values[0], out int parsedPot) &&
                     float.TryParse(values[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedPitch) &&
                     float.TryParse(values[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedRoll) &&
-                    float.TryParse(values[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedGyroY))
+                    float.TryParse(values[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedGyro) &&
+                    float.TryParse(values[4], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedAccel))
                 {
-                    rawPot = parsedPot;
-                    sensorValue = Mathf.Clamp01(rawPot / 1023f);
+                    if (!ignorePot)
+                    {
+                        rawPot = parsedPot;
+                        sensorValue = Mathf.Clamp01(rawPot / 1023f);
+                    }
+                    else
+                    {
+                        rawPot = 0;
+                        sensorValue = 0f;
+                    }
 
                     pitch = parsedPitch;
                     roll = parsedRoll;
-                    gyroY = parsedGyroY;
+                    gyroY = parsedGyro;
+                    accelZ = parsedAccel;
                 }
             }
         }

@@ -233,9 +233,12 @@ void checkRecalibrateButton()
 
     // Optional: tell Unity we recalibrated
     Serial.println("CALIBRATED");
+    displayDigit(5);
+    delay(1000);
   }
 
   lastButtonState = currentState;
+  
 }
 
 void loop()
@@ -249,20 +252,24 @@ void loop()
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
 
+  // Filtered angles for smooth visual rotation
   float pitch = calculatePitch(a.acceleration.x, a.acceleration.y, a.acceleration.z) - pitchOffset;
   float roll  = calculateRoll(a.acceleration.x, a.acceleration.y, a.acceleration.z) - rollOffset;
 
-  // g.gyro values are in radians/sec
-  float gyroY = g.gyro.y;
+  // Raw physics for flick detection
+  float gyroY = g.gyro.y;       // The speed of the wrist snap (angular velocity)
+  float accelZ = a.acceleration.z; // The upward physical thrust (linear acceleration)
 
-  // Format: pot,pitch,roll,gyroY
+  // Unity serial format: pot,pitch,roll,gyroY,accelZ
   Serial.print(potValue);
   Serial.print(",");
   Serial.print(pitch, 2);
   Serial.print(",");
   Serial.print(roll, 2);
   Serial.print(",");
-  Serial.println(gyroY, 3);
+  Serial.print(gyroY, 2);
+  Serial.print(",");
+  Serial.println(accelZ, 2);
 
   delay(20);
 }

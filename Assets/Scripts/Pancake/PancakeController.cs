@@ -3,44 +3,77 @@ using UnityEngine;
 public class PancakeController : MonoBehaviour
 {
     public FlipGestureDetector flipDetector;
-
     public Rigidbody rb;
 
-    [Header("Flip")]
-    public float baseUpForce = 5f;
-    public float strengthMultiplier = 1.5f;
-    public float spinMultiplier = 200f;
+    [Header("Testing")]
+    public Transform spawnPoint;
+    public KeyCode resetKey = KeyCode.R;
+    public KeyCode testLaunchKey = KeyCode.T;
 
-    bool airborne = false;
+    private bool airborne = false;
+
+    void Reset()
+    {
+        rb = GetComponent<Rigidbody>();
+    }
 
     void Update()
     {
-        if (!airborne && flipDetector.TryGetFlip(out float strength))
+        if (rb == null)
+            return;
+
+        if (Input.GetKeyDown(resetKey))
         {
-            Launch(strength);
+            ResetPancake();
+        }
+
+        if (Input.GetKeyDown(testLaunchKey))
+        {
+            Debug.Log("MANUAL TEST LAUNCH");
+            LaunchFlip(1.5f);
+        }
+
+        if (airborne || flipDetector == null)
+            return;
+
+        if (flipDetector.TryGetFlip(out float strength))
+        {
+            Debug.Log("FLIP DETECTOR RETURNED TRUE");
+            LaunchFlip(strength);
         }
     }
 
-    void Launch(float strength)
+    void LaunchFlip(float strength)
     {
         airborne = true;
 
-        float upForce = baseUpForce + strength * strengthMultiplier;
+        rb.velocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
+
+        float upForce = 7f + strength * 2f;
 
         rb.AddForce(Vector3.up * upForce, ForceMode.Impulse);
+        rb.AddTorque(Vector3.right * 250f, ForceMode.Impulse);
 
-        float spin = strength * spinMultiplier;
-        rb.AddTorque(Vector3.right * spin);
-
-        Debug.Log("FLIP! strength: " + strength);
+        Debug.Log("SCRIPT LAUNCH | strength: " + strength + " upForce: " + upForce);
     }
 
-    void OnCollisionEnter(Collision col)
+    void ResetPancake()
+    {
+        airborne = false;
+
+        rb.velocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
+
+        if (spawnPoint != null)
+            transform.position = spawnPoint.position;
+
+        transform.rotation = Quaternion.identity;
+    }
+
+    void OnCollisionEnter(Collision collision)
     {
         if (airborne)
-        {
             airborne = false;
-            Debug.Log("LANDED");
-        }
     }
 }

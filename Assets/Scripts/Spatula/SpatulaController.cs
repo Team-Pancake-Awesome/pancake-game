@@ -4,72 +4,84 @@ public class SpatulaController : MonoBehaviour
 {
     public ArduinoReader reader;
 
-    [Header("Lateral Position")]
-    public float rollDeadzone = 6f;
-    public float maxRollForFullMove = 25f;
-    public float maxMoveX = 3f;
-    public float moveLerpSpeed = 8f;
+    [Header("Pitch Rotation")]
+    public float rotationSmoothSpeed = 18f;
+    public float minPitchInput = 30f;   // spatula down
+    public float maxPitchInput = -40f;  // spatula up
+    public float minAngle = -15f;       // visual down angle
+    public float maxAngle = 45f;        // visual up angle
+
+    [Header("Flip Snap")]
+    public float snapGyroThreshold = 1.2f;
+    public float requiredUpPitch = -8f;
+    public float snapAngle = 22f;
+    public float snapReturnSpeed = 12f;
+
+    [Header("Roll Movement")]
+    public float moveMultiplier = 0.13f;
+    public float moveSmoothSpeed = 8f;
+    public float rollDeadzone = 2f;
     public bool invertRoll = true;
 
     [Header("Lock")]
     public KeyCode lockKey = KeyCode.Space;
     [Range(0f, 1f)]
-    public float lockedMoveMultiplier = 0f; // 0 = full lock, 0.2 = reduced movement
+    public float lockedMoveMultiplier = 0f;
 
-    [Header("Visual Tilt")]
-    public float maxVisualPitch = 20f;
-    public float visualTiltSmooth = 8f;
-    public bool invertPitchVisual = false;
+    private float targetX;
+    private float snapOffset = 0f;
 
-    private float currentX;
+    void Start()
+    {
+        targetX = transform.position.x;
+    }
 
     void Update()
     {
         if (reader == null)
             return;
 
-        float roll = reader.roll;
         float pitch = reader.pitch;
+        float roll = reader.roll;
+        float gyro = reader.gyroY;
 
         if (invertRoll)
             roll = -roll;
 
-        float targetX = currentX;
+        // Correct pitch mapping:
+        // pitch 30  -> down  -> minAngle
+        // pitch -40 -> up    -> maxAngle
+        float normalizedPitch = Mathf.InverseLerp(minPitchInput, maxPitchInput, pitch);
+        normalizedPitch = Mathf.Clamp01(normalizedPitch);
+        float targetPitch = Mathf.Lerp(minAngle, maxAngle, normalizedPitch);
 
-        if (!Input.GetKey(lockKey))
+        // Quick visual pop upward during a valid flip-like motion
+        if (gyro > snapGyroThreshold && pitch <= requiredUpPitch)
         {
-            float absRoll = Mathf.Abs(roll);
-
-            if (absRoll < rollDeadzone)
-            {
-                roll = 0f;
-            }
-            else
-            {
-                float rollSign = Mathf.Sign(roll);
-                float adjustedRoll = absRoll - rollDeadzone;
-                float usableRange = Mathf.Max(0.001f, maxRollForFullMove - rollDeadzone);
-                float normalized = Mathf.Clamp01(adjustedRoll / usableRange);
-
-                targetX = rollSign * normalized * maxMoveX;
-            }
-        }
-        else
-        {
-            targetX = Mathf.Lerp(currentX, 0f, lockedMoveMultiplier);
+            snapOffset = snapAngle;
         }
 
-        currentX = Mathf.Lerp(currentX, targetX, Time.deltaTime * moveLerpSpeed);
+        snapOffset = Mathf.Lerp(snapOffset, 0f, snapReturnSpeed * Time.deltaTime);
+        targetPitch += snapOffset;
+
+        Quaternion targetRotation = Quaternion.Euler(-targetPitch, 0f, 0f);
+        transform.rotation = Quaternion.Lerp(
+            transform.rotation,
+            targetRotation,
+            rotationSmoothSpeed * Time.deltaTime
+        );
+
+        float moveScale = 1f;
+        if (Input.GetKey(lockKey))
+            moveScale = lockedMoveMultiplier;
+
+        if (Mathf.Abs(roll) > rollDeadzone)
+        {
+            targetX += roll * moveMultiplier * moveScale * Time.deltaTime;
+        }
 
         Vector3 pos = transform.position;
-        pos.x = currentX;
+        pos.x = Mathf.Lerp(pos.x, targetX, moveSmoothSpeed * Time.deltaTime);
         transform.position = pos;
-
-        float visualPitch = Mathf.Clamp(pitch, -maxVisualPitch, maxVisualPitch);
-        if (invertPitchVisual)
-            visualPitch = -visualPitch;
-
-        Quaternion targetRot = Quaternion.Euler(visualPitch, 0f, 0f);
-        transform.rotation = Quaternion.Lerp(transform.rotation, targetRot, Time.deltaTime * visualTiltSmooth);
     }
 }
