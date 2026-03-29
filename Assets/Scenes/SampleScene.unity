@@ -5268,6 +5268,7 @@ MonoBehaviour:
   maxFlipDistance: 1.5
   scoopHeightOffset: 0.3
   sloppyFlingMultiplier: 3
+  scoopGracePeriod: 0.25
   spawnPoint: {fileID: 1470733602}
   resetKey: 114
   testLaunchKey: 116
@@ -5301,7 +5302,7 @@ Rigidbody:
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 120
+  m_Constraints: 8
   m_CollisionDetection: 0
 --- !u!136 &791357935
 CapsuleCollider:
@@ -5660,6 +5661,7 @@ MonoBehaviour:
   maxFlipDistance: 1.5
   scoopHeightOffset: 0.3
   sloppyFlingMultiplier: 3
+  scoopGracePeriod: 0.25
   spawnPoint: {fileID: 0}
   resetKey: 114
   testLaunchKey: 116

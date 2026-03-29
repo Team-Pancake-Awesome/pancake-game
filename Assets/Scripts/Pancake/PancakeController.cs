@@ -5,25 +5,34 @@ public class PancakeController : MonoBehaviour
     public FlipGestureDetector flipDetector;
     public Rigidbody rb;
 
-    [Header("Scoop Mechanic (The Fake Slide-Under)")]
+    [Header("Scoop settings")]
     public Transform spatula; 
     public KeyCode scoopKey = KeyCode.Space; 
     public float maxFlipDistance = 3.0f; 
     [Tooltip("How high to visually pop the pancake up so it looks resting on the spatula")]
     public float scoopHeightOffset = 0.3f;
-    [Tooltip("How much horizontal forceto add if they scoop off center")]
+    [Tooltip("How much horizontal force to add if they scoop off center")]
     public float sloppyFlingMultiplier = 3f;
+    
+    [Tooltip("Time in seconds after scooping before a flip is allowed")]
+    public float scoopGracePeriod = 0.25f;
+    private float timeScooped = -999f;
 
-    [Header("Testing")]
-    public Transform spawnPoint;
-    public KeyCode resetKey = KeyCode.R;
-    public KeyCode testLaunchKey = KeyCode.T;
+
 
     [Header("Flip Physics")]
     public float baseUpForce = 6f;
     public float forceMultiplier = 2.5f;
     public float baseTorque = 100f;
     public float torqueMultiplier = 150f;
+
+
+    [Header("Testing")]
+    public Transform spawnPoint;
+    public KeyCode resetKey = KeyCode.R;
+    public KeyCode testLaunchKey = KeyCode.T;
+
+    
 
     [Header("Failsafe Tuning")]
     public float launchGracePeriod = 0.2f;
@@ -49,16 +58,19 @@ public class PancakeController : MonoBehaviour
 
         if (flipDetector == null) return;
 
-        // Only allow a flip if we successfully scooped the pancake!
-        if (isScooped && flipDetector.TryGetFlip(out float strength))
+        // Only allow a flip if we scooped it AND the grace period has passed!
+        if (isScooped && (Time.time - timeScooped > scoopGracePeriod))
         {
-            LaunchFlip(strength);
+            if (flipDetector.TryGetFlip(out float strength))
+            {
+                LaunchFlip(strength);
+            }
         }
     }
 
     void HandleScooping()
     {
-        // 1. ATTEMPT TO SCOOP (When you press Space)
+        // start scooping if you're close enough and press the key
         if (Input.GetKeyDown(scoopKey) && !airborne && spatula != null)
         {
             Vector2 spatPos = new Vector2(spatula.position.x, spatula.position.z);
@@ -68,20 +80,21 @@ public class PancakeController : MonoBehaviour
             if (distance <= maxFlipDistance)
             {
                 isScooped = true;
-                rb.isKinematic = true; // Freezes physics so it stops resting on the pan!
+                rb.isKinematic = true; 
+                timeScooped = Time.time; // flip delay timer
                 
                 // Visually pop it up to "rest" on the spatula
                 transform.position = new Vector3(transform.position.x, spatula.position.y + scoopHeightOffset, transform.position.z);
 
-                // Calculate how sloppy (off-center) the player was
+                // Calculate how off center the player was
                 offCenterOffset = transform.position - spatula.position;
-                offCenterOffset.y = 0; // We only care about horizontal sloppiness
+                offCenterOffset.y = 0; 
 
                 Debug.Log($"Pancake Scooped! Off-center amount: {offCenterOffset.magnitude:F2}");
             }
         }
 
-        // 2. DROP IT (If you let go of Space without flipping)
+        //  drop if key released
         if (Input.GetKeyUp(scoopKey) && isScooped)
         {
             isScooped = false;
@@ -104,12 +117,12 @@ public class PancakeController : MonoBehaviour
         // Calculate standard upward force
         float upForce = baseUpForce + (strength * forceMultiplier);
         
-        // Calculate sloppy lateral force (flinging away if off-center)
+        // Calculate sloppy lateral force
         Vector3 sloppyForce = offCenterOffset * sloppyFlingMultiplier * strength;
 
         float appliedTorque = baseTorque + (strength * torqueMultiplier);
 
-        // Apply forces (Upward + Sloppy Sideways)
+        // Apply forces up and slop
         rb.AddForce((Vector3.up * upForce) + sloppyForce, ForceMode.Impulse);
         rb.AddTorque(Vector3.right * appliedTorque, ForceMode.Impulse);
         
@@ -132,7 +145,7 @@ public class PancakeController : MonoBehaviour
         rb.angularVelocity = Vector3.zero;
     }
     
-    // --- BULLETPROOF LANDING DETECTION ---
+   
 
     void OnCollisionEnter(Collision collision)
     {

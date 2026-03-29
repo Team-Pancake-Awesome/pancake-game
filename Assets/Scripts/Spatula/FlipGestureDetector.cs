@@ -5,12 +5,8 @@ public class FlipGestureDetector : MonoBehaviour
     public ArduinoReader reader;
 
     [Header("Gesture Tuning")]
-    [Tooltip("How fast the gyro needs to be spinning UPWARD. (Try 2.0)")]
-    public float gyroYThreshold = 2.0f; 
-    
-    [Tooltip("How much sideways twist is allowed during a flip.")]
-    public float rollLimit = 30f; 
-    
+    public float gyroYThreshold = 1.75f; 
+    public float rollLimit = 45f;
     public float cooldown = 0.35f;
 
     [Header("Debug")]
@@ -26,27 +22,34 @@ public class FlipGestureDetector : MonoBehaviour
         if (reader == null) return false;
 
         float roll = reader.roll;
-        float gyroY = reader.gyroY; // Raw wrist snap velocity!
+        float gyroY = reader.gyroY; 
 
         debugGyroY = gyroY;
         debugRoll = roll;
 
-        if (Time.time - lastFlipTime < cooldown) return false;
-
-        // ONLY LOOK AT GYRO! Ignore pitch completely!
-        // Upward flicks are positive. Downward swings are negative.
         bool isFlickingUp = gyroY >= gyroYThreshold;
         bool rollOK = Mathf.Abs(roll) <= rollLimit;
+        bool cooldownOK = (Time.time - lastFlipTime) >= cooldown;
 
-        if (isFlickingUp && rollOK)
+        
+        if (isFlickingUp)
         {
-            lastFlipTime = Time.time;
-
-            // Strength is purely based on how hard you snapped your wrist
-            strength = Mathf.Clamp(gyroY / gyroYThreshold, 1f, 2.5f);
-
-            Debug.Log($"PERFECT FLIP! GyroY: {gyroY:F2} | Strength: {strength:F2}");
-            return true;
+            if (!rollOK)
+            {
+                Debug.LogWarning($"FLIP REJECTED: You twisted too much! Roll: {roll:F2} (Limit: {rollLimit})");
+            }
+            else if (!cooldownOK)
+            {
+                Debug.LogWarning("FLIP REJECTED: Triggered too fast (Cooldown active).");
+            }
+            else
+            {
+                // Everything is perfect. Launch it.
+                lastFlipTime = Time.time;
+                strength = Mathf.Clamp(gyroY / gyroYThreshold, 1f, 2.5f);
+                Debug.Log($"PERFECT FLIP! GyroY: {gyroY:F2} | Strength: {strength:F2}");
+                return true;
+            }
         }
 
         return false;

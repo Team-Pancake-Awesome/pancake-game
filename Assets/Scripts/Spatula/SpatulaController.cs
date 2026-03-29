@@ -55,7 +55,7 @@ public class SpatulaController : MonoBehaviour
         normalizedPitch = Mathf.Clamp01(normalizedPitch);
         float targetPitch = Mathf.Lerp(minAngle, maxAngle, normalizedPitch);
 
-        // Quick visual pop upward during a valid flip-like motion
+        // Quick visual pop upward during a valid flip-like motion//////////////////////////not sure this works anymore
         if (gyro > snapGyroThreshold && pitch <= requiredUpPitch)
         {
             snapOffset = snapAngle;
