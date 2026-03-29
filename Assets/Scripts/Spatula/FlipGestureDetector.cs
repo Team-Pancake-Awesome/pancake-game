@@ -44,7 +44,7 @@ public class FlipGestureDetector : MonoBehaviour
         if (!Input.GetKey(flipModeKey)) return false;
         if (Time.time - lastFlipTime < cooldown) return false;
 
-        // THE DIRECTIONAL FIX:
+        
         // If your threshold is positive, we look for a spike above it.
         // If your threshold is negative, we look for a spike below it.
         bool isLifting = requiredAccelZ > 0 ? accelZ >= requiredAccelZ : accelZ <= requiredAccelZ;
@@ -57,7 +57,7 @@ public class FlipGestureDetector : MonoBehaviour
         {
             lastFlipTime = Time.time;
 
-            // Calculate strength (still using Abs here just so strength is always a positive multiplier)
+            // Calculate strength  using Abs here just so strength is always a positive multiplier
             strength = Mathf.Clamp(Mathf.Abs(gyroY) / Mathf.Abs(requiredGyroY), 1f, 2.5f);
 
             Debug.Log($"PERFECT FLIP! AccelZ: {accelZ:F2} | GyroY: {gyroY:F2} | Strength: {strength:F2}");

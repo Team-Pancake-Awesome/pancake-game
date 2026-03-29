@@ -135,7 +135,6 @@ GameObject:
   - component: {fileID: 175132100}
   - component: {fileID: 175132099}
   - component: {fileID: 175132098}
-  - component: {fileID: 175132097}
   m_Layer: 6
   m_Name: Spatula
   m_TagString: Untagged
@@ -143,22 +142,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &175132097
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 175132096}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a4d4b4d69edb4c44f9eafa6aa321de32, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  reader: {fileID: 745858675}
-  gyroThreshold: 1
-  minPitchForFlip: -10
-  cooldown: 0.35
 --- !u!114 &175132098
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -177,9 +160,10 @@ MonoBehaviour:
   maxPitchInput: -40
   minAngle: -20
   maxAngle: 60
-  gyroThreshold: 1.2
-  gyroBoostMultiplier: 10
-  maxGyroBoost: 25
+  snapGyroThreshold: 1.2
+  requiredUpPitch: -8
+  snapAngle: 22
+  snapReturnSpeed: 12
   moveMultiplier: 0.13
   moveSmoothSpeed: 8
   rollDeadzone: 5
@@ -203,7 +187,7 @@ BoxCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
@@ -5268,9 +5252,11 @@ MonoBehaviour:
   baudRate: 115200
   sensorValue: 0
   rawPot: 0
+  ignorePot: 1
   pitch: 0
   roll: 0
   gyroY: 0
+  accelZ: 0
 --- !u!1 &791357932
 GameObject:
   m_ObjectHideFlags: 0
@@ -5304,14 +5290,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ae8672390f04d094db0498be18754cae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  flipDetector: {fileID: 175132097}
+  flipDetector: {fileID: 1908231345}
   rb: {fileID: 791357934}
-  baseUpForce: 5
-  strengthMultiplier: 2
-  spinForce: 250
+  spatula: {fileID: 1908231344}
+  maxFlipDistance: 1.5
   spawnPoint: {fileID: 1470733602}
   resetKey: 114
-  pancakeLoaded: 1
+  testLaunchKey: 116
+  baseUpForce: 6
+  forceMultiplier: 2.5
+  baseTorque: 100
+  torqueMultiplier: 150
 --- !u!54 &791357934
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -5639,7 +5628,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1189675489
 Transform:
   m_ObjectHideFlags: 0
@@ -5689,14 +5678,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ae8672390f04d094db0498be18754cae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  flipDetector: {fileID: 175132097}
+  flipDetector: {fileID: 0}
   rb: {fileID: 1192088040}
-  baseUpForce: 5
-  strengthMultiplier: 1.5
-  spinForce: 300
+  spatula: {fileID: 0}
+  maxFlipDistance: 1.5
   spawnPoint: {fileID: 0}
   resetKey: 114
-  pancakeLoaded: 1
+  testLaunchKey: 116
+  baseUpForce: 6
+  forceMultiplier: 2.5
+  baseTorque: 100
+  torqueMultiplier: 150
 --- !u!54 &1192088040
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -5848,7 +5840,7 @@ BoxCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
@@ -6139,6 +6131,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1908231344}
   - component: {fileID: 1908231343}
+  - component: {fileID: 1908231345}
   m_Layer: 6
   m_Name: Spatula
   m_TagString: Untagged
@@ -6164,9 +6157,10 @@ MonoBehaviour:
   maxPitchInput: -40
   minAngle: -20
   maxAngle: 60
-  gyroThreshold: 1.2
-  gyroBoostMultiplier: 10
-  maxGyroBoost: 25
+  snapGyroThreshold: 1.2
+  requiredUpPitch: -8
+  snapAngle: 22
+  snapReturnSpeed: 12
   moveMultiplier: 0.13
   moveSmoothSpeed: 8
   rollDeadzone: 5
@@ -6182,13 +6176,33 @@ Transform:
   m_GameObject: {fileID: 1908231342}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: -0.19, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 175132102}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1908231345
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1908231342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4d4b4d69edb4c44f9eafa6aa321de32, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  reader: {fileID: 745858675}
+  flipModeKey: 32
+  requiredAccelZ: 13
+  requiredGyroY: 2
+  rollLimit: 12
+  debugAccelZ: 0
+  debugGyroY: 0
+  debugRoll: 0
 --- !u!1 &2048515133
 GameObject:
   m_ObjectHideFlags: 0
