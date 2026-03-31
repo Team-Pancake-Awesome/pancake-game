@@ -200,6 +200,17 @@ public class PancakeController : MonoBehaviour
         }
     }
 
+    float GetScoopTargetY(Transform spatula)
+    {
+        if (spatula == null)
+        {
+            return transform.position.y;
+        }
+
+        // Keep scoop height in world-space so steep spatula tilt does not reduce vertical clearance.
+        return spatula.position.y + scoopOffset.y;
+    }
+
     IEnumerator SmoothMoveToSpatula(Transform spatula)
     {
         transform.GetPositionAndRotation(out Vector3 startPos, out Quaternion startRot);
@@ -213,11 +224,16 @@ public class PancakeController : MonoBehaviour
             float t = Mathf.Clamp01(elapsed / duration);
             float easedT = Mathf.SmoothStep(0f, 1f, t);
 
-            Vector3 targetPos = spatula.TransformPoint(scoopOffset);
+            float targetY = GetScoopTargetY(spatula);
             Quaternion targetRot = spatula.rotation * Quaternion.Euler(scoopRotationOffsetEuler);
 
+            // Only ease vertical alignment to the spatula; keep horizontal position unchanged.
+            float y = Mathf.Lerp(startPos.y, targetY, easedT);
+            Vector3 currentPos = transform.position;
+            Vector3 syncedPos = new(currentPos.x, y, currentPos.z);
+
             transform.SetPositionAndRotation(
-                Vector3.Lerp(startPos, targetPos, easedT),
+                syncedPos,
                 Quaternion.Slerp(startRot, targetRot, easedT)
             );
 
@@ -228,9 +244,13 @@ public class PancakeController : MonoBehaviour
         {
             while (IsScooped && spatula != null)
             {
-                Vector3 targetPos = spatula.TransformPoint(scoopOffset);
+                float targetY = GetScoopTargetY(spatula);
                 Quaternion targetRot = spatula.rotation * Quaternion.Euler(scoopRotationOffsetEuler);
-                transform.SetPositionAndRotation(targetPos, targetRot);
+
+                // Keep following only the spatula's vertical movement while scooped.
+                Vector3 currentPos = transform.position;
+                Vector3 syncedPos = new(currentPos.x, targetY, currentPos.z);
+                transform.SetPositionAndRotation(syncedPos, targetRot);
                 yield return null;
             }
         }
