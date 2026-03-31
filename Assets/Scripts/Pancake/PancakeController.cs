@@ -44,6 +44,8 @@ public class PancakeController : MonoBehaviour
     private bool airborne = false;
     private float lastLaunchTime = -999f;
     private Vector3 offCenterOffset;
+    private Vector3 scoopedLocalOffset;
+    private bool hasScoopedLocalOffset = false;
     private Coroutine scoopMoveRoutine;
 
     public PancakeDoneness CurrentDoneness
@@ -87,6 +89,15 @@ public class PancakeController : MonoBehaviour
         // Calculate how off center the player was
         offCenterOffset = transform.position - spatula.position;
         offCenterOffset.y = 0; 
+
+        // Preserve grab-time local X/Z while keeping authored Y clearance above spatula.
+        Vector3 grabbedLocalOffset = spatula.InverseTransformPoint(transform.position);
+        scoopedLocalOffset = new Vector3(
+            grabbedLocalOffset.x + scoopOffset.x,
+            scoopOffset.y,
+            grabbedLocalOffset.z + scoopOffset.z
+        );
+        hasScoopedLocalOffset = true;
 
         StopScoopMoveRoutine();
         scoopMoveRoutine = StartCoroutine(SmoothMoveToSpatula(spatula));
@@ -200,25 +211,19 @@ public class PancakeController : MonoBehaviour
         }
     }
 
-    float GetScoopTargetY(Transform spatula, Vector3 worldPosition)
+    Vector3 GetScoopTargetPosition(Transform spatula)
     {
         if (spatula == null)
         {
-            return worldPosition.y;
+            return transform.position;
         }
 
-        // Solve the spatula plane height at the pancake X/Z so tilt and off-center scoops stay aligned.
-        Vector3 normal = spatula.up;
-        if (Mathf.Abs(normal.y) < 0.05f)
+        if (hasScoopedLocalOffset)
         {
-            // Avoid unstable Y when the plane is near vertical.
-            return spatula.position.y + scoopOffset.y;
+            return spatula.TransformPoint(scoopedLocalOffset);
         }
 
-        Vector3 pointOnPlane = spatula.position + (normal * scoopOffset.y);
-        float d = Vector3.Dot(normal, pointOnPlane);
-        float y = (d - (normal.x * worldPosition.x) - (normal.z * worldPosition.z)) / normal.y;
-        return y;
+        return spatula.TransformPoint(scoopOffset);
     }
 
     IEnumerator SmoothMoveToSpatula(Transform spatula)
@@ -234,13 +239,10 @@ public class PancakeController : MonoBehaviour
             float t = Mathf.Clamp01(elapsed / duration);
             float easedT = Mathf.SmoothStep(0f, 1f, t);
 
-            Vector3 currentPos = transform.position;
-            float targetY = GetScoopTargetY(spatula, currentPos);
+            Vector3 targetPos = GetScoopTargetPosition(spatula);
             Quaternion targetRot = spatula.rotation * Quaternion.Euler(scoopRotationOffsetEuler);
 
-            // Only ease vertical alignment to the spatula; keep horizontal position unchanged.
-            float y = Mathf.Lerp(startPos.y, targetY, easedT);
-            Vector3 syncedPos = new(currentPos.x, y, currentPos.z);
+            Vector3 syncedPos = Vector3.Lerp(startPos, targetPos, easedT);
 
             transform.SetPositionAndRotation(
                 syncedPos,
@@ -254,13 +256,10 @@ public class PancakeController : MonoBehaviour
         {
             while (IsScooped && spatula != null)
             {
-                Vector3 currentPos = transform.position;
-                float targetY = GetScoopTargetY(spatula, currentPos);
+                Vector3 targetPos = GetScoopTargetPosition(spatula);
                 Quaternion targetRot = spatula.rotation * Quaternion.Euler(scoopRotationOffsetEuler);
 
-                // Keep following only the spatula's vertical movement while scooped.
-                Vector3 syncedPos = new(currentPos.x, targetY, currentPos.z);
-                transform.SetPositionAndRotation(syncedPos, targetRot);
+                transform.SetPositionAndRotation(targetPos, targetRot);
                 yield return null;
             }
         }
