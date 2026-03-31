@@ -2,12 +2,9 @@ using UnityEngine;
 
 public class PancakeController : MonoBehaviour
 {
-    public FlipGestureDetector flipDetector;
     public Rigidbody rb;
 
     [Header("Scoop settings")]
-    public Transform spatula; 
-    public KeyCode scoopKey = KeyCode.Space; 
     public float maxFlipDistance = 3.0f; 
     [Tooltip("How high to visually pop the pancake up so it looks resting on the spatula")]
     public float scoopHeightOffset = 0.3f;
@@ -18,27 +15,22 @@ public class PancakeController : MonoBehaviour
     public float scoopGracePeriod = 0.25f;
     private float timeScooped = -999f;
 
-
-
     [Header("Flip Physics")]
     public float baseUpForce = 6f;
     public float forceMultiplier = 2.5f;
     public float baseTorque = 100f;
     public float torqueMultiplier = 150f;
 
-
     [Header("Testing")]
     public Transform spawnPoint;
     public KeyCode resetKey = KeyCode.R;
     public KeyCode testLaunchKey = KeyCode.T;
 
-    
-
     [Header("Failsafe Tuning")]
     public float launchGracePeriod = 0.2f;
 
+    public bool IsScooped { get; private set; } 
     private bool airborne = false;
-    private bool isScooped = false;
     private float lastLaunchTime = -999f;
     private Vector3 offCenterOffset;
 
@@ -53,60 +45,53 @@ public class PancakeController : MonoBehaviour
 
         if (Input.GetKeyDown(resetKey)) ResetPancake();
         if (Input.GetKeyDown(testLaunchKey)) LaunchFlip(1.5f);
+    }
 
-        HandleScooping();
+    // Called by the SpatulaController when the lock key is pressed
+    public void TryScoop(Transform spatula)
+    {
+        if (airborne) return;
 
-        if (flipDetector == null) return;
+        Vector2 spatPos = new Vector2(spatula.position.x, spatula.position.z);
+        Vector2 panPos = new Vector2(transform.position.x, transform.position.z);
+        float distance = Vector2.Distance(spatPos, panPos);
 
-        // Only allow a flip if we scooped it AND the grace period has passed!
-        if (isScooped && (Time.time - timeScooped > scoopGracePeriod))
+        if (distance <= maxFlipDistance)
         {
-            if (flipDetector.TryGetFlip(out float strength))
-            {
-                LaunchFlip(strength);
-            }
+            IsScooped = true;
+            rb.isKinematic = true; 
+            timeScooped = Time.time; // flip delay timer
+            
+            // Visually move it up to the spatula
+            transform.position = new Vector3(transform.position.x, spatula.position.y + scoopHeightOffset, transform.position.z);
+
+            // Calculate how off center the player was
+            offCenterOffset = transform.position - spatula.position;
+            offCenterOffset.y = 0; 
+
+            Debug.Log($"Pancake Scooped! Off-center amount: {offCenterOffset.magnitude:F2}");
         }
     }
 
-    void HandleScooping()
+    // Called by the SpatulaController when the lock key is released
+    public void Drop()
     {
-        // start scooping if you're close enough and press the key
-        if (Input.GetKeyDown(scoopKey) && !airborne && spatula != null)
+        if (IsScooped)
         {
-            Vector2 spatPos = new Vector2(spatula.position.x, spatula.position.z);
-            Vector2 panPos = new Vector2(transform.position.x, transform.position.z);
-            float distance = Vector2.Distance(spatPos, panPos);
-
-            if (distance <= maxFlipDistance)
-            {
-                isScooped = true;
-                rb.isKinematic = true; 
-                timeScooped = Time.time; // flip delay timer
-                
-                // Visually pop it up to "rest" on the spatula
-                transform.position = new Vector3(transform.position.x, spatula.position.y + scoopHeightOffset, transform.position.z);
-
-                // Calculate how off center the player was
-                offCenterOffset = transform.position - spatula.position;
-                offCenterOffset.y = 0; 
-
-                Debug.Log($"Pancake Scooped! Off-center amount: {offCenterOffset.magnitude:F2}");
-            }
-        }
-
-        //  drop if key released
-        if (Input.GetKeyUp(scoopKey) && isScooped)
-        {
-            isScooped = false;
+            IsScooped = false;
             rb.isKinematic = false; // Turn gravity back on
             Debug.Log("Pancake Dropped.");
         }
     }
 
-    void LaunchFlip(float strength)
+    // Called by the SpatulaController when a valid swipe/flick is detected
+    public void LaunchFlip(float strength)
     {
+        
+        if (!IsScooped || (Time.time - timeScooped <= scoopGracePeriod)) return;
+
         airborne = true;
-        isScooped = false;
+        IsScooped = false;
         lastLaunchTime = Time.time;
 
         // Turn physics back on for the launch
@@ -132,7 +117,7 @@ public class PancakeController : MonoBehaviour
     public void ResetPancake()
     {
         airborne = false;
-        isScooped = false;
+        IsScooped = false;
         if (rb != null) rb.isKinematic = false;
         
         if (spawnPoint != null)
@@ -145,8 +130,6 @@ public class PancakeController : MonoBehaviour
         rb.angularVelocity = Vector3.zero;
     }
     
-   
-
     void OnCollisionEnter(Collision collision)
     {
         if (airborne && Time.time - lastLaunchTime > launchGracePeriod)

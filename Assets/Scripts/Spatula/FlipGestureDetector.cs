@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class FlipGestureDetector : MonoBehaviour
+public class FlipGestureDetector : MonoBehaviour, ISpatulaInput
 {
     public ArduinoReader reader;
 
@@ -36,11 +36,11 @@ public class FlipGestureDetector : MonoBehaviour
         {
             if (!rollOK)
             {
-                Debug.LogWarning($"FLIP REJECTED: You twisted too much! Roll: {roll:F2} (Limit: {rollLimit})");
+                //Debug.LogWarning($"FLIP REJECTED: You twisted too much! Roll: {roll:F2} (Limit: {rollLimit})");
             }
             else if (!cooldownOK)
             {
-                Debug.LogWarning("FLIP REJECTED: Triggered too fast (Cooldown active).");
+                //Debug.LogWarning("FLIP REJECTED: Triggered too fast (Cooldown active).");
             }
             else
             {
