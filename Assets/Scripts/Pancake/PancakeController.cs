@@ -13,13 +13,15 @@ public class PancakeController : MonoBehaviour
     [Header("Scoop settings")]
     public float maxFlipDistance = 3.0f; 
     [Tooltip("Where to position the pancake relative to the spatula when scooped")]
-    public Vector3 scoopOffset = new(0, 0.1f, 0);
+    public Vector3 scoopOffset = new(0, 0.125f, 0);
     [Tooltip("How much horizontal force to add if they scoop off center")]
     public float sloppyFlingMultiplier = 3f;
     [Tooltip("How long it takes to ease the pancake onto the spatula")]
     public float scoopMoveDuration = 0.12f;
     [Tooltip("Optional rotation offset (degrees) after aligning to the spatula surface")]
     public Vector3 scoopRotationOffsetEuler = Vector3.zero;
+    [Tooltip("Minimum time in seconds between successful scoops")]
+    public float scoopCooldown = 0.75f;
     
     [Tooltip("Time in seconds after scooping before a flip is allowed")]
     public float scoopGracePeriod = 0.25f;
@@ -43,6 +45,7 @@ public class PancakeController : MonoBehaviour
     public bool IsAirborne => airborne;
     private bool airborne = false;
     private float lastLaunchTime = -999f;
+    private float lastScoopTime = -999f;
     private Vector3 offCenterOffset;
     private Vector3 scoopedLocalOffset;
     private bool hasScoopedLocalOffset = false;
@@ -75,6 +78,7 @@ public class PancakeController : MonoBehaviour
     public bool TryScoop(Transform spatula)
     {
         if (airborne || spatula == null) return false;
+        if (Time.time - lastScoopTime < scoopCooldown) return false;
 
         Vector2 spatPos = new(spatula.position.x, spatula.position.z);
         Vector2 panPos = new(transform.position.x, transform.position.z);
@@ -85,6 +89,7 @@ public class PancakeController : MonoBehaviour
         IsScooped = true;
         rb.isKinematic = true; 
         timeScooped = Time.time; // flip delay timer
+        lastScoopTime = Time.time;
 
         // Calculate how off center the player was
         offCenterOffset = transform.position - spatula.position;
@@ -187,6 +192,7 @@ public class PancakeController : MonoBehaviour
         StopScoopMoveRoutine();
         airborne = false;
         IsScooped = false;
+        lastScoopTime = -999f;
         if (rb != null) rb.isKinematic = false;
         stats?.ResetForNewRound(!clearToppingsOnReset);
         

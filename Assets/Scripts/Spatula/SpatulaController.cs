@@ -32,6 +32,8 @@ public class SpatulaController : MonoBehaviour
     public bool usePotForLock = true;
     [Range(0f, 1f)]
     public float potLockThreshold = 0.08f;
+    [Tooltip("Time in seconds after a successful launch before this spatula can scoop any pancake again")]
+    public float postLaunchScoopCooldown = 0.5f;
     public float PotValue => currentPotValue;
 
     private float targetX;
@@ -39,6 +41,7 @@ public class SpatulaController : MonoBehaviour
     private PancakeController activePancake; 
     private bool lastEffectiveLockHeld;
     private float currentPotValue;
+    private float lastSuccessfulLaunchTime = -999f;
 
     void Start()
     {
@@ -78,7 +81,9 @@ public class SpatulaController : MonoBehaviour
     void HandlePancakeInteractions(SpatulaControlState inputState)
     {
         // Search for the closest pancake
-        if (inputState.LockHeld && activePancake == null)
+        bool postLaunchCooldownActive = Time.time - lastSuccessfulLaunchTime < postLaunchScoopCooldown;
+
+        if (inputState.LockHeld && activePancake == null && !postLaunchCooldownActive)
         {
             Collider[] hitColliders = Physics.OverlapSphere(transform.position, scoopRadius); // TODO OverlapSphereNonAlloc with caching for performance
             PancakeController closestPancake = null;
@@ -125,6 +130,7 @@ public class SpatulaController : MonoBehaviour
                 bool launched = activePancake.LaunchFlip(inputState.FlipStrength);
                 if (launched)
                 {
+                    lastSuccessfulLaunchTime = Time.time;
                     activePancake = null;
                 }
             }
