@@ -40,6 +40,7 @@ public class PancakeController : MonoBehaviour
     public float launchGracePeriod = 0.2f;
 
     public bool IsScooped { get; private set; } 
+    public bool IsAirborne => airborne;
     private bool airborne = false;
     private float lastLaunchTime = -999f;
     private Vector3 offCenterOffset;
