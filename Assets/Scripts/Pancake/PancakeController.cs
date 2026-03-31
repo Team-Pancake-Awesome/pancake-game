@@ -200,15 +200,25 @@ public class PancakeController : MonoBehaviour
         }
     }
 
-    float GetScoopTargetY(Transform spatula)
+    float GetScoopTargetY(Transform spatula, Vector3 worldPosition)
     {
         if (spatula == null)
         {
-            return transform.position.y;
+            return worldPosition.y;
         }
 
-        // Keep scoop height in world-space so steep spatula tilt does not reduce vertical clearance.
-        return spatula.position.y + scoopOffset.y;
+        // Solve the spatula plane height at the pancake X/Z so tilt and off-center scoops stay aligned.
+        Vector3 normal = spatula.up;
+        if (Mathf.Abs(normal.y) < 0.05f)
+        {
+            // Avoid unstable Y when the plane is near vertical.
+            return spatula.position.y + scoopOffset.y;
+        }
+
+        Vector3 pointOnPlane = spatula.position + (normal * scoopOffset.y);
+        float d = Vector3.Dot(normal, pointOnPlane);
+        float y = (d - (normal.x * worldPosition.x) - (normal.z * worldPosition.z)) / normal.y;
+        return y;
     }
 
     IEnumerator SmoothMoveToSpatula(Transform spatula)
@@ -224,12 +234,12 @@ public class PancakeController : MonoBehaviour
             float t = Mathf.Clamp01(elapsed / duration);
             float easedT = Mathf.SmoothStep(0f, 1f, t);
 
-            float targetY = GetScoopTargetY(spatula);
+            Vector3 currentPos = transform.position;
+            float targetY = GetScoopTargetY(spatula, currentPos);
             Quaternion targetRot = spatula.rotation * Quaternion.Euler(scoopRotationOffsetEuler);
 
             // Only ease vertical alignment to the spatula; keep horizontal position unchanged.
             float y = Mathf.Lerp(startPos.y, targetY, easedT);
-            Vector3 currentPos = transform.position;
             Vector3 syncedPos = new(currentPos.x, y, currentPos.z);
 
             transform.SetPositionAndRotation(
@@ -244,11 +254,11 @@ public class PancakeController : MonoBehaviour
         {
             while (IsScooped && spatula != null)
             {
-                float targetY = GetScoopTargetY(spatula);
+                Vector3 currentPos = transform.position;
+                float targetY = GetScoopTargetY(spatula, currentPos);
                 Quaternion targetRot = spatula.rotation * Quaternion.Euler(scoopRotationOffsetEuler);
 
                 // Keep following only the spatula's vertical movement while scooped.
-                Vector3 currentPos = transform.position;
                 Vector3 syncedPos = new(currentPos.x, targetY, currentPos.z);
                 transform.SetPositionAndRotation(syncedPos, targetRot);
                 yield return null;
