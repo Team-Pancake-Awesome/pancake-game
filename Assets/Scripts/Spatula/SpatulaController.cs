@@ -78,7 +78,7 @@ public class SpatulaController : MonoBehaviour
     void HandlePancakeInteractions(SpatulaControlState inputState)
     {
         // Search for the closest pancake
-        if (inputState.LockPressed && activePancake == null)
+        if (inputState.LockHeld && activePancake == null)
         {
             Collider[] hitColliders = Physics.OverlapSphere(transform.position, scoopRadius); // TODO OverlapSphereNonAlloc with caching for performance
             PancakeController closestPancake = null;
