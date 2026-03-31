@@ -5443,7 +5443,7 @@ MonoBehaviour:
   boundingBox:
     center: {x: 0, y: 0, z: 0}
     size: {x: 10, y: 10, z: 10}
-  trackingTriggerDistance: 1.5
+  trackingTriggerDistance: 3
   trackingRotateSpeed: 10
   resetRotateSpeed: 8
   pancakeLookOffset: {x: 0, y: 0.1, z: 0}
