@@ -5527,6 +5527,7 @@ MonoBehaviour:
   sloppyFlingMultiplier: 3
   scoopMoveDuration: 0.12
   scoopRotationOffsetEuler: {x: 0, y: 0, z: 0}
+  scoopCooldown: 0.5
   scoopGracePeriod: 0.25
   baseUpForce: 6
   forceMultiplier: 2.5
@@ -5923,12 +5924,16 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1470733602}
     - target: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
+      propertyPath: scoopCooldown
+      value: 0.75
+      objectReference: {fileID: 0}
+    - target: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
       propertyPath: scoopOffset.y
       value: 0.125
       objectReference: {fileID: 0}
     - target: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
       propertyPath: scoopOffset.z
-      value: 0.4
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
       propertyPath: scoopHeightOffset
@@ -6088,6 +6093,7 @@ MonoBehaviour:
   scoopRadius: 2.5
   usePotForLock: 1
   potLockThreshold: 0.08
+  postLaunchScoopCooldown: 0.5
 --- !u!4 &1908231344
 Transform:
   m_ObjectHideFlags: 0
@@ -6317,12 +6323,16 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1470733602}
     - target: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
+      propertyPath: scoopCooldown
+      value: 0.75
+      objectReference: {fileID: 0}
+    - target: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
       propertyPath: scoopOffset.y
       value: 0.125
       objectReference: {fileID: 0}
     - target: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
       propertyPath: scoopOffset.z
-      value: 0.4
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
       propertyPath: scoopHeightOffset
