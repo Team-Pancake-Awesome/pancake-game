@@ -5070,7 +5070,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 31471a433335e5f4e877cca82a587b7a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  arduinoReader: {fileID: 745858675}
+  spatulaController: {fileID: 1908231343}
   flame: {fileID: 638483628}
   minEmission: 250
   maxEmission: 400
@@ -5440,7 +5440,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1189675489
 Transform:
   m_ObjectHideFlags: 0
@@ -5491,9 +5491,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rb: {fileID: 1192088040}
+  stats:
+    topCookAmount: 0
+    bottomCookAmount: 0.15
+    moisture: 1
+    qualityScore: 100
+    flipCount: 0
+    topSideUp: 1
+    toppings: []
+  clearToppingsOnReset: 1
   maxFlipDistance: 1.5
-  scoopHeightOffset: 0.3
+  scoopOffset: {x: 0, y: 0.1, z: 0}
   sloppyFlingMultiplier: 3
+  scoopMoveDuration: 0.12
+  scoopRotationOffsetEuler: {x: 0, y: 0, z: 0}
   scoopGracePeriod: 0.25
   baseUpForce: 6
   forceMultiplier: 2.5
@@ -5877,6 +5888,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5674235829562034230, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
+      propertyPath: m_Constraints
+      value: 8
+      objectReference: {fileID: 0}
     - target: {fileID: 6495815784033702245, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
       propertyPath: m_Name
       value: Pancake 2 (1)
@@ -5885,6 +5900,18 @@ PrefabInstance:
       propertyPath: spawnPoint
       value: 
       objectReference: {fileID: 1470733602}
+    - target: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
+      propertyPath: scoopOffset.y
+      value: 0.125
+      objectReference: {fileID: 0}
+    - target: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
+      propertyPath: scoopOffset.z
+      value: 0.4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
+      propertyPath: scoopHeightOffset
+      value: 0.1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -6027,24 +6054,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 593c105aa68338a42af6b08c60f90d80, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentInputMode: 0
-  reader: {fileID: 745858675}
+  currentInputMode: 1
   rotationSmoothSpeed: 12
-  minPitchInput: 30
-  maxPitchInput: -40
   minAngle: -20
   maxAngle: 60
-  snapGyroThreshold: 1.2
-  requiredUpPitch: -8
   snapAngle: 22
   snapReturnSpeed: 12
   moveMultiplier: 0.07
   moveSmoothSpeed: 8
-  rollDeadzone: 5
-  invertRoll: 1
-  lockKey: 32
   lockedMoveMultiplier: 0
   scoopRadius: 2.5
+  usePotForLock: 1
+  potLockThreshold: 0.08
 --- !u!4 &1908231344
 Transform:
   m_ObjectHideFlags: 0
@@ -6074,6 +6095,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   reader: {fileID: 745858675}
+  lockKey: 32
+  minPitchInput: 30
+  maxPitchInput: -40
+  rollDeadzone: 2
+  invertRoll: 1
   gyroYThreshold: 1.55
   rollLimit: 40
   cooldown: 0.5
@@ -6091,6 +6117,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e73dd26552b3ac459739a0f3f613596, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  lockKey: 32
+  keyboardMoveBoost: 25
+  potIncreaseKey: 273
+  potDecreaseKey: 274
+  potRiseSpeed: 0.8
+  potFallSpeed: 0.8
+  initialPotValue: 0
   minSwipeSpeed: 1500
   maxSwipeSpeed: 5500
   cooldown: 0.35
@@ -6249,6 +6282,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5674235829562034230, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
+      propertyPath: m_Constraints
+      value: 8
+      objectReference: {fileID: 0}
     - target: {fileID: 6495815784033702245, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
       propertyPath: m_Name
       value: Pancake 2
@@ -6257,6 +6294,18 @@ PrefabInstance:
       propertyPath: spawnPoint
       value: 
       objectReference: {fileID: 1470733602}
+    - target: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
+      propertyPath: scoopOffset.y
+      value: 0.125
+      objectReference: {fileID: 0}
+    - target: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
+      propertyPath: scoopOffset.z
+      value: 0.4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
+      propertyPath: scoopHeightOffset
+      value: 0.1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

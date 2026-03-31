@@ -12,44 +12,42 @@ public class SpatulaController : MonoBehaviour
     private MouseInput mouseInput;
     private ISpatulaInput activeInput;
 
-    [Header("References")]
-    public ArduinoReader reader;
-
     [Header("Pitch Rotation")]
     public float rotationSmoothSpeed = 18f;
-    public float minPitchInput = 30f;   // spatula down
-    public float maxPitchInput = -40f;  // spatula up
     public float minAngle = -15f;       // visual down angle
     public float maxAngle = 45f;        // visual up angle
 
     [Header("Flip Snap")]
-    public float snapGyroThreshold = 1.2f;
-    public float requiredUpPitch = -8f;
     public float snapAngle = 22f;
     public float snapReturnSpeed = 12f;
 
     [Header("Roll Movement")]
     public float moveMultiplier = 0.13f;
     public float moveSmoothSpeed = 8f;
-    public float rollDeadzone = 2f;
-    public bool invertRoll = true;
 
     [Header("Lock / Scoop")]
-    public KeyCode lockKey = KeyCode.Space;
     [Range(0f, 1f)]
     public float lockedMoveMultiplier = 0f;
     public float scoopRadius = 2.5f;
+    public bool usePotForLock = true;
+    [Range(0f, 1f)]
+    public float potLockThreshold = 0.08f;
+    public float PotValue => currentPotValue;
 
     private float targetX;
     private float snapOffset = 0f;
     private PancakeController activePancake; 
+    private bool lastEffectiveLockHeld;
+    private float currentPotValue;
 
     void Start()
     {
         targetX = transform.position.x;
 
-        arduinoInput = GetComponent<FlipGestureDetector>() ?? FindObjectOfType<FlipGestureDetector>();
-        mouseInput = GetComponent<MouseInput>() ?? FindObjectOfType<MouseInput>();
+        arduinoInput = GetComponent<FlipGestureDetector>();
+        if (arduinoInput == null) arduinoInput = FindObjectOfType<FlipGestureDetector>();
+        mouseInput = GetComponent<MouseInput>();
+        if (mouseInput == null) mouseInput = FindObjectOfType<MouseInput>();
 
         if (arduinoInput == null) Debug.LogWarning("SpatulaController: Could not find FlipGestureDetector (Arduino).");
         if (mouseInput == null) Debug.LogWarning("SpatulaController: Could not find MouseInput.");
@@ -57,16 +55,32 @@ public class SpatulaController : MonoBehaviour
 
     void Update()
     {
-        HandlePancakeInteractions();
-        HandleSpatulaMovement();
+        activeInput = (currentInputMode == InputMode.Mouse) ? mouseInput : arduinoInput;
+        if (activeInput == null || !activeInput.TryGetControlState(out SpatulaControlState inputState))
+        {
+            currentPotValue = 0f;
+            return;
+        }
+
+        currentPotValue = Mathf.Clamp01(inputState.PotValue);
+
+        bool lockHeldFromPot = currentPotValue > potLockThreshold;
+        bool effectiveLockHeld = usePotForLock ? (lockHeldFromPot || inputState.LockHeld) : inputState.LockHeld;
+        inputState.LockPressed = effectiveLockHeld && !lastEffectiveLockHeld;
+        inputState.LockHeld = effectiveLockHeld;
+        inputState.LockReleased = !effectiveLockHeld && lastEffectiveLockHeld;
+        lastEffectiveLockHeld = effectiveLockHeld;
+
+        HandlePancakeInteractions(inputState);
+        HandleSpatulaMovement(inputState);
     }
 
-    void HandlePancakeInteractions()
+    void HandlePancakeInteractions(SpatulaControlState inputState)
     {
         // Search for the closest pancake
-        if (Input.GetKeyDown(lockKey) && activePancake == null)
+        if (inputState.LockPressed && activePancake == null)
         {
-            Collider[] hitColliders = Physics.OverlapSphere(transform.position, scoopRadius);
+            Collider[] hitColliders = Physics.OverlapSphere(transform.position, scoopRadius); // TODO OverlapSphereNonAlloc with caching for performance
             PancakeController closestPancake = null;
             float closestDistance = Mathf.Infinity;
 
@@ -86,72 +100,42 @@ public class SpatulaController : MonoBehaviour
 
             if (closestPancake != null)
             {
-                activePancake = closestPancake;
-                activePancake.TryScoop(transform);
+                if (closestPancake.TryScoop(transform))
+                {
+                    activePancake = closestPancake;
+                }
             }
         }
         
         // Let go of the current pancake
-        if (Input.GetKeyUp(lockKey) && activePancake != null)
+        if (inputState.LockReleased && activePancake != null)
         {
             activePancake.Drop();
             activePancake = null; 
         }
 
-        // Assign active input
-        activeInput = (currentInputMode == InputMode.Mouse) ? (ISpatulaInput)mouseInput : (ISpatulaInput)arduinoInput;
-
         // Check for flick throw the active pancake
-        if (activeInput != null && activeInput.TryGetFlip(out float strength))
+        if (inputState.SnapRequested)
         {
             
             snapOffset = snapAngle; 
 
-            if (activePancake != null)
+            if (activePancake != null && inputState.FlipTriggered)
             {
-                activePancake.LaunchFlip(strength);
-                activePancake = null; 
+                bool launched = activePancake.LaunchFlip(inputState.FlipStrength);
+                if (launched)
+                {
+                    activePancake = null;
+                }
             }
         }
     }
 
-    void HandleSpatulaMovement()
+    void HandleSpatulaMovement(SpatulaControlState inputState)
     {
-        float targetPitch = minAngle; // Default resting angle
-
-        // mouse input mode directly maps cursor Y to spatula pitch, and keyboard left/right to horizontal movement
-        if (currentInputMode == InputMode.Mouse)
-        {
-            // Keyboard 
-            float moveInput = Input.GetAxis("Horizontal"); 
-            float moveScale = Input.GetKey(lockKey) ? lockedMoveMultiplier : 1f;
-            targetX += moveInput * (moveMultiplier * 25f) * moveScale * Time.deltaTime; 
-
-            // mouse: map the cursor's Y position on the screen directly to the spatula's tilt
-            float normalizedMouseY = Mathf.Clamp01(Input.mousePosition.y / Screen.height);
-            targetPitch = Mathf.Lerp(minAngle, maxAngle, normalizedMouseY);
-        }
-        else if (reader != null)
-        {
-            float pitch = reader.pitch;
-            float roll = invertRoll ? -reader.roll : reader.roll;
-            float gyro = reader.gyroY;
-
-            float normalizedPitch = Mathf.InverseLerp(minPitchInput, maxPitchInput, pitch);
-            targetPitch = Mathf.Lerp(minAngle, maxAngle, Mathf.Clamp01(normalizedPitch));
-
-            // Arduino auto-snap fallback
-            if (gyro > snapGyroThreshold && pitch <= requiredUpPitch)
-            {
-                snapOffset = snapAngle;
-            }
-
-            float scale = Input.GetKey(lockKey) ? lockedMoveMultiplier : 1f;
-            if (Mathf.Abs(roll) > rollDeadzone)
-            {
-                targetX += roll * moveMultiplier * scale * Time.deltaTime;
-            }
-        }
+        float targetPitch = Mathf.Lerp(minAngle, maxAngle, inputState.PitchNormalized);
+        float moveScale = inputState.LockHeld ? lockedMoveMultiplier : 1f;
+        targetX += inputState.HorizontalInput * moveMultiplier * moveScale * Time.deltaTime;
 
         // Apply Visual Rotation 
         targetPitch += snapOffset;

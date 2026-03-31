@@ -4,6 +4,13 @@ public class FlipGestureDetector : MonoBehaviour, ISpatulaInput
 {
     public ArduinoReader reader;
 
+    [Header("Arduino Controls")]
+    public KeyCode lockKey = KeyCode.Space;
+    public float minPitchInput = 30f;
+    public float maxPitchInput = -40f;
+    public float rollDeadzone = 2f;
+    public bool invertRoll = true;
+
     [Header("Gesture Tuning")]
     public float gyroYThreshold = 1.75f; 
     public float rollLimit = 45f;
@@ -15,17 +22,26 @@ public class FlipGestureDetector : MonoBehaviour, ISpatulaInput
 
     private float lastFlipTime = -999f;
 
-    public bool TryGetFlip(out float strength)
+    public bool TryGetControlState(out SpatulaControlState state)
     {
-        strength = 0f;
+        state = default;
 
         if (reader == null) return false;
 
-        float roll = reader.roll;
+        float roll = invertRoll ? -reader.roll : reader.roll;
+        float pitch = reader.pitch;
         float gyroY = reader.gyroY; 
 
         debugGyroY = gyroY;
         debugRoll = roll;
+
+        state.PotValue = Mathf.Clamp01(reader.sensorValue);
+        state.HorizontalInput = Mathf.Abs(roll) > rollDeadzone ? roll : 0f;
+        float normalizedPitch = Mathf.InverseLerp(minPitchInput, maxPitchInput, pitch);
+        state.PitchNormalized = Mathf.Clamp01(normalizedPitch);
+        state.LockPressed = Input.GetKeyDown(lockKey);
+        state.LockHeld = Input.GetKey(lockKey);
+        state.LockReleased = Input.GetKeyUp(lockKey);
 
         bool isFlickingUp = gyroY >= gyroYThreshold;
         bool rollOK = Mathf.Abs(roll) <= rollLimit;
@@ -46,12 +62,14 @@ public class FlipGestureDetector : MonoBehaviour, ISpatulaInput
             {
                 // Everything is perfect. Launch it.
                 lastFlipTime = Time.time;
-                strength = Mathf.Clamp(gyroY / gyroYThreshold, 1f, 2.5f);
+                float strength = Mathf.Clamp(gyroY / gyroYThreshold, 1f, 2.5f);
+                state.FlipTriggered = true;
+                state.SnapRequested = true;
+                state.FlipStrength = strength;
                 Debug.Log($"PERFECT FLIP! GyroY: {gyroY:F2} | Strength: {strength:F2}");
-                return true;
             }
         }
 
-        return false;
+        return true;
     }
 }

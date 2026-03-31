@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class FlamePot : MonoBehaviour
 {
-    public ArduinoReader arduinoReader;
+    public SpatulaController spatulaController;
     public ParticleSystem flame;
 
     [Header("emission")]
@@ -35,10 +35,10 @@ public class FlamePot : MonoBehaviour
 
     void Update()
     {
-        if (arduinoReader == null || flame == null)
+        if (spatulaController == null || flame == null)
             return;
 
-        float t = Mathf.Clamp01(arduinoReader.sensorValue);
+        float t = Mathf.Clamp01(spatulaController.PotValue);
 
         var main = flame.main;
         var emission = flame.emission;
