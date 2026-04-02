@@ -1,15 +1,20 @@
 using UnityEngine;
+using System.Linq;
 
 public class SpatulaController : MonoBehaviour
 {
     public enum InputMode { Arduino, Mouse }
 
     [Header("Input Settings")]
-    [Tooltip("Toggle between Arduino hardware or Mouse swipes")]
+    [Tooltip("Toggle between two ISpatulaInput sources")]
     public InputMode currentInputMode = InputMode.Arduino;
+    [Tooltip("Arduino input source component (must implement ISpatulaInput)")]
+    public MonoBehaviour arduinoInputSource;
+    [Tooltip("Mouse input source component (must implement ISpatulaInput)")]
+    public MonoBehaviour mouseInputSource;
 
-    private FlipGestureDetector arduinoInput;
-    private MouseInput mouseInput;
+    private ISpatulaInput arduinoInput;
+    private ISpatulaInput mouseInput;
     private ISpatulaInput activeInput;
 
     [Header("Pitch Rotation")]
@@ -46,14 +51,33 @@ public class SpatulaController : MonoBehaviour
     void Start()
     {
         targetX = transform.position.x;
+        ResolveInputSources();
+    }
 
-        arduinoInput = GetComponent<FlipGestureDetector>();
-        if (arduinoInput == null) arduinoInput = FindObjectOfType<FlipGestureDetector>();
-        mouseInput = GetComponent<MouseInput>();
-        if (mouseInput == null) mouseInput = FindObjectOfType<MouseInput>();
+    void ResolveInputSources()
+    {
+        arduinoInput = arduinoInputSource as ISpatulaInput;
+        mouseInput = mouseInputSource as ISpatulaInput;
 
-        if (arduinoInput == null) Debug.LogWarning("SpatulaController: Could not find FlipGestureDetector (Arduino).");
-        if (mouseInput == null) Debug.LogWarning("SpatulaController: Could not find MouseInput.");
+        var localInputs = GetComponents<MonoBehaviour>()
+            .OfType<ISpatulaInput>()
+            .ToArray();
+
+        arduinoInput ??= localInputs.FirstOrDefault();
+        mouseInput ??= localInputs.FirstOrDefault(input => !ReferenceEquals(input, arduinoInput));
+
+        var discoveredInputs = FindObjectsOfType<MonoBehaviour>()
+            .OfType<ISpatulaInput>()
+            .ToArray();
+
+        arduinoInput ??= discoveredInputs.FirstOrDefault();
+        mouseInput ??= discoveredInputs.FirstOrDefault(input => !ReferenceEquals(input, arduinoInput));
+
+        if (arduinoInput == null)
+            Debug.LogWarning("SpatulaController: Could not resolve a primary ISpatulaInput source.");
+
+        if (mouseInput == null)
+            Debug.LogWarning("SpatulaController: Could not resolve a secondary ISpatulaInput source.");
     }
 
     void Update()

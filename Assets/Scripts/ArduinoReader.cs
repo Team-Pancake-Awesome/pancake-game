@@ -4,7 +4,7 @@ using System.Linq;
 using System.Globalization;
 using System;
 
-public class ArduinoReader : MonoBehaviour
+public class ArduinoReader : MonoBehaviour, ISpatulaInput
 {
     [Header("Serial Port Settings")]
     public string portName = "COM4";
@@ -26,6 +26,24 @@ public class ArduinoReader : MonoBehaviour
     public float roll = 0f;
     public float gyroY = 0f; //
     public float accelZ = 0f; // captures upward thrust
+
+    [Header("Arduino Controls")]
+    public KeyCode lockKey = KeyCode.Space;
+    public float minPitchInput = 30f;
+    public float maxPitchInput = -40f;
+    public float rollDeadzone = 2f;
+    public bool invertRoll = true;
+
+    [Header("Gesture Tuning")]
+    public float gyroYThreshold = 1.75f;
+    public float rollLimit = 45f;
+    public float cooldown = 0.35f;
+
+    [Header("Gesture Debug")]
+    public float debugGyroY;
+    public float debugRoll;
+
+    private float lastFlipTime = -999f;
 
     void Start()
     {
@@ -156,5 +174,42 @@ public class ArduinoReader : MonoBehaviour
     {
         if (serialPort != null && serialPort.IsOpen)
             serialPort.Close();
+    }
+
+    public bool TryGetControlState(out SpatulaControlState state)
+    {
+        state = default;
+
+        // Require an open serial stream before exposing control input.
+        if (serialPort == null || !serialPort.IsOpen)
+            return false;
+
+        float currentRoll = invertRoll ? -roll : roll;
+
+        debugGyroY = gyroY;
+        debugRoll = currentRoll;
+
+        state.PotValue = Mathf.Clamp01(sensorValue);
+        state.HorizontalInput = Mathf.Abs(currentRoll) > rollDeadzone ? currentRoll : 0f;
+        float normalizedPitch = Mathf.InverseLerp(minPitchInput, maxPitchInput, pitch);
+        state.PitchNormalized = Mathf.Clamp01(normalizedPitch);
+        state.LockPressed = Input.GetKeyDown(lockKey);
+        state.LockHeld = Input.GetKey(lockKey);
+        state.LockReleased = Input.GetKeyUp(lockKey);
+
+        bool isFlickingUp = gyroY >= gyroYThreshold;
+        bool rollOK = Mathf.Abs(currentRoll) <= rollLimit;
+        bool cooldownOK = (Time.time - lastFlipTime) >= cooldown;
+
+        if (isFlickingUp && rollOK && cooldownOK)
+        {
+            lastFlipTime = Time.time;
+            float strength = Mathf.Clamp(gyroY / gyroYThreshold, 1f, 2.5f);
+            state.FlipTriggered = true;
+            state.SnapRequested = true;
+            state.FlipStrength = strength;
+        }
+
+        return true;
     }
 }
