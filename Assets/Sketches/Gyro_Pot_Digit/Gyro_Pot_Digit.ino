@@ -5,7 +5,8 @@
 Adafruit_MPU6050 mpu;
 
 const int potPin = A3;
-
+const int buttonPin = 12;
+bool lastButtonState = HIGH;
 
 int seven = 7;
 int six = 6;
@@ -186,8 +187,6 @@ void displayDigit(int digit)
   }
 }
 
-
-
 void setup()
 {
   Serial.begin(115200);
@@ -211,7 +210,7 @@ void setup()
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 
   pinMode(potPin, INPUT);
-
+  pinMode(buttonPin, INPUT_PULLUP);
   for (int i = 4; i <= 11; i++)
   {
     pinMode(i, OUTPUT);
@@ -223,32 +222,54 @@ void setup()
   calibrateSensor();
 }
 
+void checkRecalibrateButton()
+{
+  bool currentState = digitalRead(buttonPin);
+
+  // Detect button press (HIGH → LOW)
+  if (lastButtonState == HIGH && currentState == LOW)
+  {
+    calibrateSensor();
+
+    // Optional: tell Unity we recalibrated
+    Serial.println("CALIBRATED");
+    displayDigit(5);
+    delay(1000);
+  }
+
+  lastButtonState = currentState;
+  
+}
+
 void loop()
 {
   int potValue = readSmoothPot(potPin);
 
-  // turn pot range 14 1013 into digit 0..9
-  //int constrainedPot = constrain(potValue, 14, 1013);
-  //int potDigit = map(constrainedPot, 14, 1013, 0, 9);
-
   int constrainedPot = constrain(potValue, 60, 1013);
   int potDigit = map(constrainedPot, 60, 1013, 0, 9);
-
-
   displayDigit(potDigit);
-
+  checkRecalibrateButton();
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
 
+  // Filtered angles for smooth visual rotation
   float pitch = calculatePitch(a.acceleration.x, a.acceleration.y, a.acceleration.z) - pitchOffset;
   float roll  = calculateRoll(a.acceleration.x, a.acceleration.y, a.acceleration.z) - rollOffset;
 
-  // Keep your Unity serial format the same: pot,pitch,roll
+  // Raw physics for flick detection
+  float gyroY = g.gyro.y;       // The speed of the wrist snap (angular velocity)
+  float accelZ = a.acceleration.z; // The upward physical thrust (linear acceleration)
+
+  // Unity serial format: pot,pitch,roll,gyroY,accelZ
   Serial.print(potValue);
   Serial.print(",");
   Serial.print(pitch, 2);
   Serial.print(",");
-  Serial.println(roll, 2);
+  Serial.print(roll, 2);
+  Serial.print(",");
+  Serial.print(gyroY, 2);
+  Serial.print(",");
+  Serial.println(accelZ, 2);
 
   delay(20);
 }

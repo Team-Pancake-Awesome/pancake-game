@@ -1,9 +1,10 @@
 ﻿using UnityEngine;
 using System.IO.Ports;
-using System.Threading;
 using System.Linq;
+using System.Globalization;
+using System;
 
-public class ArduinoReader : MonoBehaviour
+public class ArduinoReader : MonoBehaviour, ISpatulaInput
 {
     [Header("Serial Port Settings")]
     public string portName = "COM4";
@@ -16,9 +17,33 @@ public class ArduinoReader : MonoBehaviour
     public float sensorValue = 0f;
     public int rawPot = 0;
 
+    [Header("Debug")]
+    [Tooltip("Ignore potentiometer input during play for debugging.")]
+    public bool ignorePot = false;
+
     [Header("Gyro Data")]
     public float pitch = 0f;
     public float roll = 0f;
+    public float gyroY = 0f; //
+    public float accelZ = 0f; // captures upward thrust
+
+    [Header("Arduino Controls")]
+    public KeyCode lockKey = KeyCode.Space;
+    public float minPitchInput = 30f;
+    public float maxPitchInput = -40f;
+    public float rollDeadzone = 2f;
+    public bool invertRoll = true;
+
+    [Header("Gesture Tuning")]
+    public float gyroYThreshold = 1.75f;
+    public float rollLimit = 45f;
+    public float cooldown = 0.35f;
+
+    [Header("Gesture Debug")]
+    public float debugGyroY;
+    public float debugRoll;
+
+    private float lastFlipTime = -999f;
 
     void Start()
     {
@@ -37,7 +62,9 @@ public class ArduinoReader : MonoBehaviour
             {
                 ReadTimeout = 500
             };
+
             serialPort.Open();
+            serialPort.DiscardInBuffer();
             Debug.Log("Opened: " + portName);
         }
         catch (System.Exception e)
@@ -58,23 +85,43 @@ public class ArduinoReader : MonoBehaviour
             if (string.IsNullOrEmpty(line))
                 return;
 
+            // Ignore calibration messages
+            if (line == "CALIBRATED")
+            {
+                Debug.Log("recalibrated");
+                return;
+            }
+
             string[] values = line.Split(',');
 
-            if (values.Length == 3)
+            if (values.Length >= 5)
             {
-                if (int.TryParse(values[0], out int parsedPot) &&
-                    float.TryParse(values[1], out float parsedPitch) &&
-                    float.TryParse(values[2], out float parsedRoll))
+                 if (int.TryParse(values[0], out int parsedPot) &&
+                    float.TryParse(values[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedPitch) &&
+                    float.TryParse(values[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedRoll) &&
+                    float.TryParse(values[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedGyro) &&
+                    float.TryParse(values[4], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedAccel))
                 {
-                    rawPot = parsedPot;
-
-                    // normalize pot
-                    sensorValue = Mathf.Clamp01(rawPot / 1023f);
+                    if (!ignorePot)
+                    {
+                        rawPot = parsedPot;
+                        sensorValue = Mathf.Clamp01(rawPot / 1023f);
+                    }
+                    else
+                    {
+                        rawPot = 0;
+                        sensorValue = 0f;
+                    }
 
                     pitch = parsedPitch;
                     roll = parsedRoll;
+                    gyroY = parsedGyro;
+                    accelZ = parsedAccel;
                 }
             }
+        }
+        catch (TimeoutException)
+        {
         }
         catch (System.Exception e)
         {
@@ -87,7 +134,6 @@ public class ArduinoReader : MonoBehaviour
         var ports = SerialPort.GetPortNames();
         Debug.Log("Ports found: " + string.Join(", ", ports));
 
-        // Windows: COM ports
         if (Application.platform == RuntimePlatform.WindowsEditor ||
             Application.platform == RuntimePlatform.WindowsPlayer)
         {
@@ -100,7 +146,6 @@ public class ArduinoReader : MonoBehaviour
             return winPreferred ?? ports.FirstOrDefault();
         }
 
-        // macOS: /dev/cu.usbmodem*, /dev/cu.usbserial*, /dev/cu.wchusbserial*
         if (Application.platform == RuntimePlatform.OSXEditor ||
             Application.platform == RuntimePlatform.OSXPlayer)
         {
@@ -112,7 +157,6 @@ public class ArduinoReader : MonoBehaviour
             return macPreferred ?? ports.FirstOrDefault();
         }
 
-        // Linux: common USB serial names
         if (Application.platform == RuntimePlatform.LinuxEditor ||
             Application.platform == RuntimePlatform.LinuxPlayer)
         {
@@ -130,5 +174,42 @@ public class ArduinoReader : MonoBehaviour
     {
         if (serialPort != null && serialPort.IsOpen)
             serialPort.Close();
+    }
+
+    public bool TryGetControlState(out SpatulaControlState state)
+    {
+        state = default;
+
+        // Require an open serial stream before exposing control input.
+        if (serialPort == null || !serialPort.IsOpen)
+            return false;
+
+        float currentRoll = invertRoll ? -roll : roll;
+
+        debugGyroY = gyroY;
+        debugRoll = currentRoll;
+
+        state.PotValue = Mathf.Clamp01(sensorValue);
+        state.HorizontalInput = Mathf.Abs(currentRoll) > rollDeadzone ? currentRoll : 0f;
+        float normalizedPitch = Mathf.InverseLerp(minPitchInput, maxPitchInput, pitch);
+        state.PitchNormalized = Mathf.Clamp01(normalizedPitch);
+        state.LockPressed = Input.GetKeyDown(lockKey);
+        state.LockHeld = Input.GetKey(lockKey);
+        state.LockReleased = Input.GetKeyUp(lockKey);
+
+        bool isFlickingUp = gyroY >= gyroYThreshold;
+        bool rollOK = Mathf.Abs(currentRoll) <= rollLimit;
+        bool cooldownOK = (Time.time - lastFlipTime) >= cooldown;
+
+        if (isFlickingUp && rollOK && cooldownOK)
+        {
+            lastFlipTime = Time.time;
+            float strength = Mathf.Clamp(gyroY / gyroYThreshold, 1f, 2.5f);
+            state.FlipTriggered = true;
+            state.SnapRequested = true;
+            state.FlipStrength = strength;
+        }
+
+        return true;
     }
 }
