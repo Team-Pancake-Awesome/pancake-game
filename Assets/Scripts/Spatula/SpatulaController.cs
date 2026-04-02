@@ -37,6 +37,8 @@ public class SpatulaController : MonoBehaviour
     public bool usePotForLock = true;
     [Range(0f, 1f)]
     public float potLockThreshold = 0.08f;
+    [Tooltip("Max press duration to treat as a tap-drop while scooped")]
+    public float scoopedTapDropThreshold = 0.18f;
     [Tooltip("Time in seconds after a successful launch before this spatula can scoop any pancake again")]
     public float postLaunchScoopCooldown = 0.5f;
     public float PotValue => currentPotValue;
@@ -44,7 +46,9 @@ public class SpatulaController : MonoBehaviour
     private float targetX;
     private float snapOffset = 0f;
     private PancakeController activePancake; 
-    private bool lastEffectiveLockHeld;
+    private bool lastRawLockHeld;
+    private bool dropTapCandidate;
+    private float scoopedPressStartTime = -999f;
     private float currentPotValue;
     private float lastSuccessfulLaunchTime = -999f;
 
@@ -86,28 +90,28 @@ public class SpatulaController : MonoBehaviour
         if (activeInput == null || !activeInput.TryGetControlState(out SpatulaControlState inputState))
         {
             currentPotValue = 0f;
+            lastRawLockHeld = false;
             return;
         }
 
         currentPotValue = Mathf.Clamp01(inputState.PotValue);
 
-        bool lockHeldFromPot = currentPotValue > potLockThreshold;
-        bool effectiveLockHeld = usePotForLock ? (lockHeldFromPot || inputState.LockHeld) : inputState.LockHeld;
-        inputState.LockPressed = effectiveLockHeld && !lastEffectiveLockHeld;
-        inputState.LockHeld = effectiveLockHeld;
-        inputState.LockReleased = !effectiveLockHeld && lastEffectiveLockHeld;
-        lastEffectiveLockHeld = effectiveLockHeld;
+        bool rawLockHeld = inputState.LockHeld;
+        bool rawLockPressed = rawLockHeld && !lastRawLockHeld;
+        bool rawLockReleased = !rawLockHeld && lastRawLockHeld;
+        lastRawLockHeld = rawLockHeld;
 
-        HandlePancakeInteractions(inputState);
-        HandleSpatulaMovement(inputState);
+        HandlePancakeInteractions(inputState, rawLockPressed, rawLockHeld, rawLockReleased);
+        HandleSpatulaMovement(inputState, rawLockHeld);
     }
 
-    void HandlePancakeInteractions(SpatulaControlState inputState)
+    void HandlePancakeInteractions(SpatulaControlState inputState, bool rawLockPressed, bool rawLockHeld, bool rawLockReleased)
     {
-        // Search for the closest pancake
+        // Scoop only on press, not while continuously held.
         bool postLaunchCooldownActive = Time.time - lastSuccessfulLaunchTime < postLaunchScoopCooldown;
+        bool scoopedThisFrame = false;
 
-        if (inputState.LockHeld && activePancake == null && !postLaunchCooldownActive)
+        if (activePancake == null && rawLockPressed && !postLaunchCooldownActive)
         {
             Collider[] hitColliders = Physics.OverlapSphere(transform.position, scoopRadius); // TODO OverlapSphereNonAlloc with caching for performance
             PancakeController closestPancake = null;
@@ -132,39 +136,69 @@ public class SpatulaController : MonoBehaviour
                 if (closestPancake.TryScoop(transform))
                 {
                     activePancake = closestPancake;
+                    scoopedThisFrame = true;
+                    dropTapCandidate = false;
+                    scoopedPressStartTime = -999f;
                 }
             }
         }
-        
-        // Let go of the current pancake
-        if (inputState.LockReleased && activePancake != null)
+
+        // While scooped, press starts a tap/hold decision.
+        if (activePancake != null && rawLockPressed && !scoopedThisFrame)
         {
-            activePancake.Drop();
-            activePancake = null; 
+            dropTapCandidate = true;
+            scoopedPressStartTime = Time.time;
         }
 
-        // Check for flick throw the active pancake
+        // Holding beyond threshold cancels tap-drop and keeps toss enabled.
+        if (activePancake != null && rawLockHeld && dropTapCandidate)
+        {
+            if (Time.time - scoopedPressStartTime > scoopedTapDropThreshold)
+            {
+                dropTapCandidate = false;
+            }
+        }
+
+        // Release drops only if that press was a short tap.
+        if (activePancake != null && rawLockReleased && dropTapCandidate)
+        {
+            activePancake.Drop();
+            activePancake = null;
+            dropTapCandidate = false;
+            scoopedPressStartTime = -999f;
+            return;
+        }
+
+        if (rawLockReleased)
+        {
+            dropTapCandidate = false;
+            scoopedPressStartTime = -999f;
+        }
+
+        // Holding lock while scooped allows toss when a valid flip/snap is detected.
         if (inputState.SnapRequested)
         {
-            
             snapOffset = snapAngle; 
 
-            if (activePancake != null && inputState.FlipTriggered)
+            if (activePancake != null && rawLockHeld && inputState.FlipTriggered)
             {
                 bool launched = activePancake.LaunchFlip(inputState.FlipStrength);
                 if (launched)
                 {
                     lastSuccessfulLaunchTime = Time.time;
                     activePancake = null;
+                    dropTapCandidate = false;
+                    scoopedPressStartTime = -999f;
                 }
             }
         }
     }
 
-    void HandleSpatulaMovement(SpatulaControlState inputState)
+    void HandleSpatulaMovement(SpatulaControlState inputState, bool rawLockHeld)
     {
         float targetPitch = Mathf.Lerp(minAngle, maxAngle, inputState.PitchNormalized);
-        float moveScale = inputState.LockHeld ? lockedMoveMultiplier : 1f;
+        bool aboutToToss = activePancake != null && activePancake.IsScooped && rawLockHeld;
+        float moveScale = aboutToToss ? lockedMoveMultiplier : 1f;
         targetX += inputState.HorizontalInput * moveMultiplier * moveScale * Time.deltaTime;
 
         // Apply Visual Rotation 
