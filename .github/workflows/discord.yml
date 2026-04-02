@@ -64,4 +64,4 @@ jobs:
           DISCORD_AVATAR: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
           DISCORD_EMBEDS: ${{ steps.prmeta.outputs.discord_embeds }}
         with:
-          args: "New PR opened!"
+          args: "@everyone New PR opened!"
