@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class FlamePot : MonoBehaviour
@@ -24,8 +25,26 @@ public class FlamePot : MonoBehaviour
     [Header("off")]
     public float offThreshold = 0.03f;
 
+    [Header("pancake heat")]
+    [Min(0.1f)]
+    public float heatRadius = 1.25f;
+    [Min(0f)]
+    public float heatPerSecondAtFullFlame = 0.9f;
+    public Vector3 heatCenterOffset = Vector3.zero;
+
+    [Header("pancake color")]
+    public Color uncookedColor = new(1f, 0.9f, 0.75f, 1f); // TODO: once proper textures are in, move texture business in pancake and call from radius check
+    public Color burntColor = new(0.22f, 0.13f, 0.08f, 1f);
+
+    private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+    private static readonly int ColorId = Shader.PropertyToID("_Color");
+    private readonly Collider[] heatHits = new Collider[32];
+    private MaterialPropertyBlock materialPropertyBlock;
+
     void Start()
     {
+        materialPropertyBlock = new MaterialPropertyBlock();
+
         if (flame == null)
             flame = GetComponent<ParticleSystem>();
 
@@ -51,6 +70,7 @@ public class FlamePot : MonoBehaviour
         if (t <= offThreshold)
         {
             emission.rateOverTime = 0f;
+            UpdatePancakeVisuals();
             return;
         }
 
@@ -58,5 +78,80 @@ public class FlamePot : MonoBehaviour
         main.startSize = Mathf.Lerp(minSize, maxSize, t);
         main.startSpeed = Mathf.Lerp(minSpeed, maxSpeed, t);
         shape.radius = Mathf.Lerp(minRadius, maxRadius, t);
+
+        ApplyHeatToNearbyPancakes(t);
+        UpdatePancakeVisuals();
+    }
+
+    void ApplyHeatToNearbyPancakes(float flame01)
+    {
+        Vector3 heatCenter = GetHeatCenter();
+        int hitCount = Physics.OverlapSphereNonAlloc(heatCenter, heatRadius, heatHits);
+        if (hitCount <= 0)
+        {
+            return;
+        }
+
+        float heatAmount = heatPerSecondAtFullFlame * flame01;
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider hit = heatHits[i];
+            heatHits[i] = null;
+            if (hit == null)
+            {
+                continue;
+            }
+
+            PancakeController pancake = hit.GetComponentInParent<PancakeController>();
+            if (pancake == null)
+            {
+                continue;
+            }
+
+            pancake.ApplyHeat(heatAmount);
+        }
+    }
+
+    void UpdatePancakeVisuals()
+    {
+        if (!PancakeRegistry.TryGetInstance(out PancakeRegistry registry))
+        {
+            return;
+        }
+
+        IReadOnlyList<PancakeController> pancakes = registry.Pancakes;
+        for (int i = 0; i < pancakes.Count; i++)
+        {
+            PancakeController pancake = pancakes[i];
+            if (pancake == null)
+            {
+                continue;
+            }
+
+            Renderer meshRenderer = pancake.GetComponentInChildren<Renderer>();
+            if (meshRenderer == null)
+            {
+                continue;
+            }
+
+            float cooked01 = Mathf.Clamp01(pancake.AverageCookAmount);
+            Color cookedColor = Color.Lerp(uncookedColor, burntColor, cooked01);
+
+            meshRenderer.GetPropertyBlock(materialPropertyBlock);
+            materialPropertyBlock.SetColor(BaseColorId, cookedColor);
+            materialPropertyBlock.SetColor(ColorId, cookedColor);
+            meshRenderer.SetPropertyBlock(materialPropertyBlock);
+        }
+    }
+
+    Vector3 GetHeatCenter()
+    {
+        return transform.TransformPoint(heatCenterOffset);
+    }
+
+    void OnDrawGizmosSelected()
+    {
+        Gizmos.color = new Color(1f, 0.5f, 0.1f, 0.75f);
+        Gizmos.DrawWireSphere(GetHeatCenter(), Mathf.Max(0.01f, heatRadius));
     }
 }

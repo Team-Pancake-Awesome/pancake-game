@@ -22,6 +22,8 @@ public class PancakeController : MonoBehaviour
     public Vector3 scoopRotationOffsetEuler = Vector3.zero;
     [Tooltip("Minimum time in seconds between successful scoops")]
     public float scoopCooldown = 0.75f;
+    [Tooltip("Keep the pancake on its scoop-time world Z while being held")]
+    public bool keepScoopedWorldZ = true;
     
     [Tooltip("Time in seconds after scooping before a flip is allowed")]
     public float scoopGracePeriod = 0.25f;
@@ -49,7 +51,31 @@ public class PancakeController : MonoBehaviour
     private Vector3 offCenterOffset;
     private Vector3 scoopedLocalOffset;
     private bool hasScoopedLocalOffset = false;
+    private float scoopedWorldZ;
     private Coroutine scoopMoveRoutine;
+
+    void OnEnable()
+    {
+        if (!Application.isPlaying)
+        {
+            return;
+        }
+
+        PancakeRegistry.Instance.Register(this);
+    }
+
+    void OnDisable()
+    {
+        if (!Application.isPlaying)
+        {
+            return;
+        }
+
+        if (PancakeRegistry.TryGetInstance(out PancakeRegistry registry))
+        {
+            registry.Unregister(this);
+        }
+    }
 
     public PancakeDoneness CurrentDoneness
     {
@@ -90,6 +116,7 @@ public class PancakeController : MonoBehaviour
         rb.isKinematic = true; 
         timeScooped = Time.time; // flip delay timer
         lastScoopTime = Time.time;
+        scoopedWorldZ = transform.position.z;
 
         // Calculate how off center the player was
         offCenterOffset = transform.position - spatula.position;
@@ -195,6 +222,24 @@ public class PancakeController : MonoBehaviour
         lastScoopTime = -999f;
         if (rb != null) rb.isKinematic = false;
         stats?.ResetForNewRound(!clearToppingsOnReset);
+
+        if (clearToppingsOnReset)
+        {
+            Transform[] childTransforms = GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < childTransforms.Length; i++)
+            {
+                Transform child = childTransforms[i];
+                if (child == null || child.gameObject == gameObject)
+                {
+                    continue;
+                }
+
+                if (child.GetComponent("ToppingController") != null)
+                {
+                    Destroy(child.gameObject);
+                }
+            }
+        }
         
         if (spawnPoint != null)
         {
@@ -221,15 +266,25 @@ public class PancakeController : MonoBehaviour
     {
         if (spatula == null)
         {
-            return transform.position;
+            return ConstrainScoopedPosition(transform.position);
         }
 
         if (hasScoopedLocalOffset)
         {
-            return spatula.TransformPoint(scoopedLocalOffset);
+            return ConstrainScoopedPosition(spatula.TransformPoint(scoopedLocalOffset));
         }
 
-        return spatula.TransformPoint(scoopOffset);
+        return ConstrainScoopedPosition(spatula.TransformPoint(scoopOffset));
+    }
+
+    Vector3 ConstrainScoopedPosition(Vector3 position)
+    {
+        if (keepScoopedWorldZ && IsScooped)
+        {
+            position.z = scoopedWorldZ;
+        }
+
+        return position;
     }
 
     IEnumerator SmoothMoveToSpatula(Transform spatula)
