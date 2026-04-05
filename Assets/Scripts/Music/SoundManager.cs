@@ -40,4 +40,12 @@ public class SoundManager : MonoBehaviour
 
         soundCueClip.Play(sources[index], transform.position);
     }
+
+    private void OnDestroy()
+    {
+        if (_instance == this)
+        {
+            _instance = null;
+        }
+    }
 }

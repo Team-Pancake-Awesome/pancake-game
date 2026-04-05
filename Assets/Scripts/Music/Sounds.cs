@@ -53,17 +53,8 @@ public class SoundCueClips : ScriptableObject
 
     public bool TryGetClip(SoundCues cue, out SoundCueClip soundCueClip)
     {
-        foreach (SoundCueClip clip in clips)
-        {
-            if (clip.cue == cue)
-            {
-                soundCueClip = clip;
-                return true;
-            }
-        }
-
-        Debug.LogError($"Sound cue {cue} not found!");
-        soundCueClip = null;
-        return false;
+        var clip = GetClip(cue);
+        soundCueClip = clip;
+        return clip != null;
     }
 }
