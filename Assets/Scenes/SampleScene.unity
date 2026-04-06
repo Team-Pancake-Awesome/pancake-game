@@ -6943,6 +6943,7 @@ GameObject:
   - component: {fileID: 1670405432}
   - component: {fileID: 1670405431}
   - component: {fileID: 1670405433}
+  - component: {fileID: 1670405434}
   m_Layer: 0
   m_Name: Manager
   m_TagString: Untagged
@@ -7007,6 +7008,19 @@ MonoBehaviour:
   force2DMusic: 1
   TimeTransitionBackToNormalSeconds: 15
   TransitionBackToNormalAfterSeconds: 1
+--- !u!114 &1670405434
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1670405430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f803cba2b6e8cb52d8479a2ed89a78ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  soundCueClips: {fileID: 11400000, guid: 061c784c31c0e6efb90eb348ee2d96d0, type: 2}
 --- !u!1 &1779697318
 GameObject:
   m_ObjectHideFlags: 0
