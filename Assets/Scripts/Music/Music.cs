@@ -13,6 +13,8 @@ public class MusicCueClip
     public float maxDistance = 500f;
     public AudioRolloffMode rolloffMode = AudioRolloffMode.Logarithmic;
     public float minDistance = 1f;
+    public bool additive = false; // if true, this music will play on top of any existing music instead of replacing it
+    public float additiveTransitionTime = 0f;
 
     public AudioClip clip;
 

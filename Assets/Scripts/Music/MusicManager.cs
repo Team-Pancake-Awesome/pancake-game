@@ -20,6 +20,8 @@ public class MusicManager : MonoBehaviour
     public bool TransitionBackToNormalAfterSeconds = true; // only if no transitions are requested
 
     private readonly AudioSource[] sources = new AudioSource[Enum.GetValues(typeof(MusicCues)).Length];
+    private readonly bool[] additiveActive = new bool[Enum.GetValues(typeof(MusicCues)).Length];
+    private readonly Coroutine[] additiveFadeRoutines = new Coroutine[Enum.GetValues(typeof(MusicCues)).Length];
 
     private static MusicManager _instance;
 
@@ -102,6 +104,8 @@ public class MusicManager : MonoBehaviour
 
     public void StopMusic(float fadeOutSeconds = 0f)
     {
+        StopAllAdditiveLayers(fadeOutSeconds);
+
         if (!hasCurrentCue)
         {
             return;
@@ -167,6 +171,14 @@ public class MusicManager : MonoBehaviour
 
         nextCueClip.ApplyToSource(nextSource, GetPlaybackAnchor(), EvaluateIntensityMultiplier());
         ApplyPlaybackOverrides(nextSource);
+
+        if (nextCueClip.additive)
+        {
+            PlayAdditiveLayer(cue, nextCueClip, nextSource, transitionTransportSeconds);
+            return;
+        }
+
+        StopAllAdditiveLayers(nextCueClip.additiveTransitionTime);
 
         if (hasCurrentCue && currentCue == cue)
         {
@@ -316,6 +328,116 @@ public class MusicManager : MonoBehaviour
         transitionRoutine = null;
     }
 
+    private void PlayAdditiveLayer(MusicCues cue, MusicCueClip cueClip, AudioSource source, double transportSecondsAtStart)
+    {
+        if (cueClip == null || cueClip.clip == null || source == null)
+        {
+            return;
+        }
+
+        int index = (int)cue;
+        if (index < 0 || index >= additiveActive.Length)
+        {
+            return;
+        }
+
+        float targetVolume = cueClip.volume * EvaluateIntensityMultiplier();
+
+        if (!source.isPlaying)
+        {
+            source.volume = 0f;
+            SyncSourceToTransport(source, cueClip.clip, transportSecondsAtStart);
+            source.Play();
+        }
+
+        additiveActive[index] = true;
+
+        float fadeSeconds = Mathf.Max(0f, cueClip.additiveTransitionTime);
+        if (fadeSeconds <= 0f)
+        {
+            source.volume = targetVolume;
+            return;
+        }
+
+        if (additiveFadeRoutines[index] != null)
+        {
+            StopCoroutine(additiveFadeRoutines[index]);
+        }
+
+        additiveFadeRoutines[index] = StartCoroutine(FadeSourceVolumeRoutine(index, source, targetVolume, fadeSeconds, stopSourceAtEnd: false));
+    }
+
+    private void StopAllAdditiveLayers(float fadeOutSeconds)
+    {
+        for (int i = 0; i < additiveActive.Length; i++)
+        {
+            if (!additiveActive[i])
+            {
+                continue;
+            }
+
+            AudioSource source = GetOrCreateSource(i);
+            if (source == null)
+            {
+                additiveActive[i] = false;
+                continue;
+            }
+
+            float duration = Mathf.Max(0f, fadeOutSeconds);
+            if (musicCueClips != null && musicCueClips.TryGetClip((MusicCues)i, out MusicCueClip cueClip) && cueClip != null)
+            {
+                duration = Mathf.Max(duration, cueClip.additiveTransitionTime);
+            }
+
+            if (additiveFadeRoutines[i] != null)
+            {
+                StopCoroutine(additiveFadeRoutines[i]);
+                additiveFadeRoutines[i] = null;
+            }
+
+            if (duration <= 0f)
+            {
+                source.Stop();
+                additiveActive[i] = false;
+                continue;
+            }
+
+            additiveFadeRoutines[i] = StartCoroutine(FadeSourceVolumeRoutine(i, source, 0f, duration, stopSourceAtEnd: true));
+        }
+    }
+
+    private IEnumerator FadeSourceVolumeRoutine(int index, AudioSource source, float targetVolume, float duration, bool stopSourceAtEnd)
+    {
+        if (source == null)
+        {
+            additiveFadeRoutines[index] = null;
+            additiveActive[index] = false;
+            yield break;
+        }
+
+        float startVolume = source.volume;
+        float safeDuration = Mathf.Max(0.01f, duration);
+        float elapsed = 0f;
+
+        while (elapsed < safeDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / safeDuration);
+            source.volume = Mathf.Lerp(startVolume, targetVolume, t);
+            yield return null;
+        }
+
+        source.volume = targetVolume;
+
+        if (stopSourceAtEnd)
+        {
+            source.Stop();
+            additiveActive[index] = false;
+        }
+
+        additiveFadeRoutines[index] = null;
+    }
+
     private IEnumerator WaitForClipThenTransition(AudioClip clip, MusicCues cue, float transitionSeconds)
     {
         if (clip == null)
@@ -357,24 +479,41 @@ public class MusicManager : MonoBehaviour
 
     private void RefreshCurrentVolume()
     {
-        if (!hasCurrentCue || musicCueClips == null)
+        if (musicCueClips == null)
         {
             return;
         }
 
-        int index = (int)currentCue;
-        AudioSource source = GetOrCreateSource(index);
-        if (source == null)
+        if (hasCurrentCue)
         {
-            return;
+            int index = (int)currentCue;
+            AudioSource source = GetOrCreateSource(index);
+            if (source != null && musicCueClips.TryGetClip(currentCue, out MusicCueClip cueClip) && cueClip != null)
+            {
+                source.volume = cueClip.volume * EvaluateIntensityMultiplier();
+            }
         }
 
-        if (!musicCueClips.TryGetClip(currentCue, out MusicCueClip cueClip) || cueClip == null)
+        for (int i = 0; i < additiveActive.Length; i++)
         {
-            return;
-        }
+            if (!additiveActive[i])
+            {
+                continue;
+            }
 
-        source.volume = cueClip.volume * EvaluateIntensityMultiplier();
+            if (!musicCueClips.TryGetClip((MusicCues)i, out MusicCueClip additiveCueClip) || additiveCueClip == null)
+            {
+                continue;
+            }
+
+            AudioSource additiveSource = GetOrCreateSource(i);
+            if (additiveSource == null)
+            {
+                continue;
+            }
+
+            additiveSource.volume = additiveCueClip.volume * EvaluateIntensityMultiplier();
+        }
     }
 
     private float EvaluateIntensityMultiplier()
@@ -481,6 +620,17 @@ public class MusicManager : MonoBehaviour
         {
             StopCoroutine(pendingLoadRoutine);
             pendingLoadRoutine = null;
+        }
+
+        for (int i = 0; i < additiveFadeRoutines.Length; i++)
+        {
+            if (additiveFadeRoutines[i] == null)
+            {
+                continue;
+            }
+
+            StopCoroutine(additiveFadeRoutines[i]);
+            additiveFadeRoutines[i] = null;
         }
 
         if (_instance == this)
