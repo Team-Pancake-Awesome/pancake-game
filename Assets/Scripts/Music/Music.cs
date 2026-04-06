@@ -16,9 +16,10 @@ public class MusicCueClip
 
     public AudioClip clip;
 
-    public void ApplyToSource(AudioSource source, Vector3 position, float volumeMultiplier)
+    public void ApplyToSource(AudioSource source, Transform transform, float volumeMultiplier)
     {
-        source.transform.position = position;
+        source.transform.parent = transform;
+        source.transform.localPosition = Vector3.zero;
         source.volume = Mathf.Clamp01(volume * Mathf.Max(0f, volumeMultiplier));
         source.pitch = pitch;
         source.loop = loop;

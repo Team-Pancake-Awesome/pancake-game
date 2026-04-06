@@ -18,7 +18,12 @@ public class SoundCueClip
 
     public void Play(AudioSource source, Vector3 position)
     {
-        source.transform.position = position; // move the audio source gameobject to the desired position
+        if (source == null || clip == null)
+        {
+            return;
+        }
+
+        source.transform.position = position;
         source.volume = volume;
         source.pitch = pitch;
         source.loop = loop;
@@ -28,6 +33,15 @@ public class SoundCueClip
         source.minDistance = minDistance;
         source.spatialize = spatialize;
 
+        if (loop)
+        {
+            source.clip = clip;
+            source.Play();
+            return;
+        }
+
+        source.Stop();
+        source.clip = null;
         source.PlayOneShot(clip);
     }
 }

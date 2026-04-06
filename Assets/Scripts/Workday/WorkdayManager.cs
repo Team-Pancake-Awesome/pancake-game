@@ -131,6 +131,8 @@ public class WorkdayManager : MonoBehaviour
         guestsById.Clear();
         recentRatings.Clear();
 
+        MusicManager.Instance.PlayMusicNow(MusicCues.Normal);
+
         currentSummary = new WorkdaySummary
         {
             dayDurationSeconds = workdayDurationSeconds

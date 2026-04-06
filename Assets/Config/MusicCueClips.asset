@@ -12,4 +12,24 @@ MonoBehaviour:
   m_Script: {fileID: 0}
   m_Name: MusicCueClips
   m_EditorClassIdentifier: Assembly-CSharp::MusicCueClips
-  clips: []
+  clips:
+  - cue: 1
+    volume: 1
+    pitch: 1
+    loop: 1
+    spatialize: 0
+    spatialBlend: 1
+    maxDistance: 500
+    rolloffMode: 0
+    minDistance: 0
+    clip: {fileID: 8300000, guid: f8c7b351d809727bdb4568f45e5da19b, type: 3}
+  - cue: 0
+    volume: 1
+    pitch: 1.5
+    loop: 0
+    spatialize: 0
+    spatialBlend: 1
+    maxDistance: 500
+    rolloffMode: 0
+    minDistance: 0
+    clip: {fileID: 8300000, guid: f8c7b351d809727bdb4568f45e5da19b, type: 3}

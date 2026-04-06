@@ -25,7 +25,23 @@ public class SoundManager : MonoBehaviour
 
     private SoundManager() { }
 
+    void Awake()
+    {
+        if (_instance != null && _instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        _instance = this;
+        DontDestroyOnLoad(gameObject);
+    }
+
     public void PlaySound(SoundCues cue)
+    {
+        PlaySound(cue, transform.position);
+    }
+
+    public void PlaySound(SoundCues cue, Vector3 position)
     {
         if (!soundCueClips.TryGetClip(cue, out SoundCueClip soundCueClip))
         {
@@ -33,12 +49,30 @@ public class SoundManager : MonoBehaviour
         }
 
         int index = (int)cue;
-        if (sources[index] == null)
+        AudioSource source = GetOrCreateSource(index, cue);
+        if (source == null)
         {
-            sources[index] = gameObject.AddComponent<AudioSource>();
+            return;
         }
 
-        soundCueClip.Play(sources[index], transform.position);
+        soundCueClip.Play(source, position);
+    }
+
+    private AudioSource GetOrCreateSource(int index, SoundCues cue)
+    {
+        if (index < 0 || index >= sources.Length)
+        {
+            return null;
+        }
+
+        if (sources[index] == null)
+        {
+            GameObject sourceObject = new($"SoundSource_{cue}");
+            sourceObject.transform.SetParent(transform, false);
+            sources[index] = sourceObject.AddComponent<AudioSource>();
+        }
+
+        return sources[index];
     }
 
     private void OnDestroy()
