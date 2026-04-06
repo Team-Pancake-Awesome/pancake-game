@@ -220,6 +220,7 @@ public class WorkdayManager : MonoBehaviour
         ClampSelectedOrderIndex();
 
         OnOrderServed?.Invoke(order, rating);
+        SoundManager.Instance.PlaySound(SoundCues.OrderSubmitted, transform.position);
 
         if (logEvents)
         {
@@ -264,6 +265,7 @@ public class WorkdayManager : MonoBehaviour
         activeOrders.Add(order);
         ClampSelectedOrderIndex();
         OnOrderCreated?.Invoke(order);
+        SoundManager.Instance.PlaySound(SoundCues.ReceiveOrder, transform.position);
 
         if (logEvents)
         {
@@ -299,6 +301,7 @@ public class WorkdayManager : MonoBehaviour
         ClampSelectedOrderIndex();
 
         OnOrderExpired?.Invoke(order, rating);
+        SoundManager.Instance.PlaySound(SoundCues.FailedOrder, transform.position);
 
         if (logEvents)
         {
@@ -441,6 +444,8 @@ public class WorkdayManager : MonoBehaviour
                 spawnTransform.position,
                 spawnTransform.rotation,
                 spawnParent);
+
+            SoundManager.Instance.PlaySound(SoundCues.PourBatter, spawnTransform.position);
         }
         else if (logEvents && !loggedMissingPancakePrefab)
         {
