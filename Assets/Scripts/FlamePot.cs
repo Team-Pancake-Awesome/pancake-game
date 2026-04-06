@@ -177,7 +177,7 @@ public class FlamePot : MonoBehaviour
             return;
         }
 
-        MusicManager.Instance.PlayMusic(MusicCues.Normal);
+        // MusicManager.Instance.PlayMusic(MusicCues.Normal);
     }
     
 
