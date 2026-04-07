@@ -353,11 +353,7 @@ public class WorkdayManager : MonoBehaviour
             RespawnServedPancake(servedPancake);
         }
 
-        currentSummary.ratings.Add(rating);
-        currentSummary.Recalculate();
-        string bonusText = rating.flipBonusScore > 0f
-            ? $" (+{rating.flipBonusScore:F2} flip bonus, {rating.flipCount} flips)"
-            : "";
+        RecordRating(rating);
         ClampSelectedOrderIndex();
 
         OnOrderServed?.Invoke(order, rating);
@@ -434,8 +430,7 @@ public class WorkdayManager : MonoBehaviour
         guestsById.TryGetValue(order.guestId, out GuestProfile guest);
         GuestRatingResult rating = ratingCalculator.EvaluateExpired(order, guest);
 
-        currentSummary.ratings.Add(rating);
-        currentSummary.Recalculate();
+        RecordRating(rating);
         ClampSelectedOrderIndex();
 
         OnOrderExpired?.Invoke(order, rating);
@@ -476,6 +471,12 @@ public class WorkdayManager : MonoBehaviour
         }
 
         selectedOrderIndex = Mathf.Clamp(selectedOrderIndex, 0, activeOrders.Count - 1);
+    }
+
+    private void RecordRating(GuestRatingResult rating)
+    {
+        currentSummary.ratings.Add(rating);
+        currentSummary.Recalculate();
     }
 
     private void RespawnServedPancake(PancakeController servedPancake)
