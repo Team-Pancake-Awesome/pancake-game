@@ -7375,7 +7375,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1908231344}
   - component: {fileID: 1908231343}
-  - component: {fileID: 1908231345}
   - component: {fileID: 1908231346}
   - component: {fileID: 1908231347}
   m_Layer: 6
@@ -7398,8 +7397,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   currentInputMode: 1
-  arduinoInputSource: {fileID: 1908231343}
-  mouseInputSource: {fileID: 1908231343}
+  arduinoInput: {fileID: 1908231347}
+  mouseInput: {fileID: 1908231346}
   rotationSmoothSpeed: 12
   minAngle: -20
   maxAngle: 60
@@ -7411,6 +7410,7 @@ MonoBehaviour:
   scoopRadius: 2.5
   usePotForLock: 0
   potLockThreshold: 0.08
+  scoopedTapDropThreshold: 0.18
   postLaunchScoopCooldown: 0.5
 --- !u!4 &1908231344
 Transform:
@@ -7428,29 +7428,6 @@ Transform:
   - {fileID: 175132102}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1908231345
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1908231342}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a4d4b4d69edb4c44f9eafa6aa321de32, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  reader: {fileID: 0}
-  lockKey: 32
-  minPitchInput: 30
-  maxPitchInput: -40
-  rollDeadzone: 2
-  invertRoll: 1
-  gyroYThreshold: 1.55
-  rollLimit: 40
-  cooldown: 0.5
-  debugGyroY: 0
-  debugRoll: 0
 --- !u!114 &1908231346
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -7494,6 +7471,7 @@ MonoBehaviour:
   roll: 0
   gyroY: 0
   accelZ: 0
+  actionButton: 0
   lockKey: 32
   minPitchInput: 30
   maxPitchInput: -40

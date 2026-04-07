@@ -9,12 +9,10 @@ public class SpatulaController : MonoBehaviour
     [Tooltip("Toggle between two ISpatulaInput sources")]
     public InputMode currentInputMode = InputMode.Arduino;
     [Tooltip("Arduino input source component (must implement ISpatulaInput)")]
-    public MonoBehaviour arduinoInputSource;
+    public ArduinoReader arduinoInput;
     [Tooltip("Mouse input source component (must implement ISpatulaInput)")]
-    public MonoBehaviour mouseInputSource;
+    public MouseInput mouseInput;
 
-    private ISpatulaInput arduinoInput;
-    private ISpatulaInput mouseInput;
     private ISpatulaInput activeInput;
 
     [Header("Pitch Rotation")]
@@ -60,23 +58,6 @@ public class SpatulaController : MonoBehaviour
 
     void ResolveInputSources()
     {
-        arduinoInput = arduinoInputSource as ISpatulaInput;
-        mouseInput = mouseInputSource as ISpatulaInput;
-
-        var localInputs = GetComponents<MonoBehaviour>()
-            .OfType<ISpatulaInput>()
-            .ToArray();
-
-        arduinoInput ??= localInputs.FirstOrDefault();
-        mouseInput ??= localInputs.FirstOrDefault(input => !ReferenceEquals(input, arduinoInput));
-
-        var discoveredInputs = FindObjectsOfType<MonoBehaviour>()
-            .OfType<ISpatulaInput>()
-            .ToArray();
-
-        arduinoInput ??= discoveredInputs.FirstOrDefault();
-        mouseInput ??= discoveredInputs.FirstOrDefault(input => !ReferenceEquals(input, arduinoInput));
-
         if (arduinoInput == null)
             Debug.LogWarning("SpatulaController: Could not resolve a primary ISpatulaInput source.");
 
