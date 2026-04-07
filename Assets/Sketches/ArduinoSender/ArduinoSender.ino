@@ -6,6 +6,7 @@ Adafruit_MPU6050 mpu;
 
 const int potPin = A3;
 const int buttonPin = 12;
+const int actionButtonPin = 13;
 bool lastButtonState = HIGH;
 
 int seven = 7;
@@ -211,6 +212,7 @@ void setup()
 
   pinMode(potPin, INPUT);
   pinMode(buttonPin, INPUT_PULLUP);
+  pinMode(actionButtonPin, INPUT_PULLUP);
   for (int i = 4; i <= 11; i++)
   {
     pinMode(i, OUTPUT);
@@ -260,7 +262,9 @@ void loop()
   float gyroY = g.gyro.y;       // The speed of the wrist snap (angular velocity)
   float accelZ = a.acceleration.z; // The upward physical thrust (linear acceleration)
 
-  // Unity serial format: pot,pitch,roll,gyroY,accelZ
+  int actionButtonPressed = (digitalRead(actionButtonPin) == LOW) ? 1 : 0;
+
+  // Unity serial format: pot,pitch,roll,gyroY,accelZ,actionButtonPressed
   Serial.print(potValue);
   Serial.print(",");
   Serial.print(pitch, 2);
@@ -269,7 +273,9 @@ void loop()
   Serial.print(",");
   Serial.print(gyroY, 2);
   Serial.print(",");
-  Serial.println(accelZ, 2);
+  Serial.print(accelZ, 2);
+  Serial.print(",");
+  Serial.println(actionButtonPressed);
 
   delay(20);
 }

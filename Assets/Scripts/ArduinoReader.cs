@@ -26,6 +26,7 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput
     public float roll = 0f;
     public float gyroY = 0f; //
     public float accelZ = 0f; // captures upward thrust
+    public int actionButton = 0; //space 
 
     [Header("Arduino Controls")]
     public KeyCode lockKey = KeyCode.Space;
@@ -44,6 +45,7 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput
     public float debugRoll;
 
     private float lastFlipTime = -999f;
+    private bool lastActionButtonHeld;
 
     void Start()
     {
@@ -94,13 +96,14 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput
 
             string[] values = line.Split(',');
 
-            if (values.Length >= 5)
+            if (values.Length >= 6)
             {
                  if (int.TryParse(values[0], out int parsedPot) &&
                     float.TryParse(values[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedPitch) &&
                     float.TryParse(values[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedRoll) &&
                     float.TryParse(values[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedGyro) &&
-                    float.TryParse(values[4], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedAccel))
+                    float.TryParse(values[4], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedAccel) &&
+                    int.TryParse(values[5], out int parsedActionButton))
                 {
                     if (!ignorePot)
                     {
@@ -117,6 +120,7 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput
                     roll = parsedRoll;
                     gyroY = parsedGyro;
                     accelZ = parsedAccel;
+                    actionButton = parsedActionButton;
                 }
             }
         }
@@ -193,9 +197,15 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput
         state.HorizontalInput = Mathf.Abs(currentRoll) > rollDeadzone ? currentRoll : 0f;
         float normalizedPitch = Mathf.InverseLerp(minPitchInput, maxPitchInput, pitch);
         state.PitchNormalized = Mathf.Clamp01(normalizedPitch);
-        state.LockPressed = Input.GetKeyDown(lockKey);
-        state.LockHeld = Input.GetKey(lockKey);
-        state.LockReleased = Input.GetKeyUp(lockKey);
+
+
+        bool currentActionButtonHeld = actionButton == 1;
+
+        state.LockPressed = Input.GetKeyDown(lockKey) || (currentActionButtonHeld && !lastActionButtonHeld);
+        state.LockHeld = Input.GetKey(lockKey) || currentActionButtonHeld;
+        state.LockReleased = Input.GetKeyUp(lockKey) || (!currentActionButtonHeld && lastActionButtonHeld);
+
+        lastActionButtonHeld = currentActionButtonHeld;
 
         bool isFlickingUp = gyroY >= gyroYThreshold;
         bool rollOK = Mathf.Abs(currentRoll) <= rollLimit;
