@@ -21,6 +21,7 @@ public class FlipGestureDetector : MonoBehaviour, ISpatulaInput
     public float debugRoll;
 
     private float lastFlipTime = -999f;
+    private bool lastActionButtonHeld;
 
     public bool TryGetControlState(out SpatulaControlState state)
     {
@@ -39,9 +40,15 @@ public class FlipGestureDetector : MonoBehaviour, ISpatulaInput
         state.HorizontalInput = Mathf.Abs(roll) > rollDeadzone ? roll : 0f;
         float normalizedPitch = Mathf.InverseLerp(minPitchInput, maxPitchInput, pitch);
         state.PitchNormalized = Mathf.Clamp01(normalizedPitch);
-        state.LockPressed = Input.GetKeyDown(lockKey);
-        state.LockHeld = Input.GetKey(lockKey);
-        state.LockReleased = Input.GetKeyUp(lockKey);
+
+
+        bool currentActionButtonHeld = reader.actionButton == 1;
+
+        state.LockPressed = Input.GetKeyDown(lockKey) || (currentActionButtonHeld && !lastActionButtonHeld);
+        state.LockHeld = Input.GetKey(lockKey) || currentActionButtonHeld;
+        state.LockReleased = Input.GetKeyUp(lockKey) || (!currentActionButtonHeld && lastActionButtonHeld);
+
+        lastActionButtonHeld = currentActionButtonHeld;
 
         bool isFlickingUp = gyroY >= gyroYThreshold;
         bool rollOK = Mathf.Abs(roll) <= rollLimit;
