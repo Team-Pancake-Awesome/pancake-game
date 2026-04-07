@@ -16,6 +16,8 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
     public float staleDataTimeout = 1.2f;
     [Tooltip("Reconnect after this many consecutive malformed packets")]
     public int maxConsecutiveGarbagePackets = 12;
+    [Tooltip("Max time to wait for the first valid packet after opening the port")]
+    public float firstPacketTimeout = 6f;
 
     private SerialPort serialPort;
 
@@ -62,6 +64,8 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
     private int consecutiveGarbagePackets;
     private volatile bool isCloseInProgress;
     private int malformedLogCounter;
+    private bool hasReceivedValidPacketSinceOpen;
+    private float lastOpenTime = -999f;
 
     public bool IsBackgroundActivityEnabled { get; set; } = true;
 
@@ -90,8 +94,15 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
 
             if (serialPort.BytesToRead <= 0)
             {
-                if (Time.time - lastValidPacketTime >= staleDataTimeout)
-                    ForceReconnect("stale serial stream");
+                if (hasReceivedValidPacketSinceOpen)
+                {
+                    if (Time.time - lastValidPacketTime >= staleDataTimeout)
+                        ForceReconnect("stale serial stream");
+                }
+                else if (Time.time - lastOpenTime >= firstPacketTimeout)
+                {
+                    ForceReconnect("no initial serial data");
+                }
 
                 return;
             }
@@ -186,6 +197,8 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
             serialPort.Open();
             serialPort.DiscardInBuffer();
             consecutiveGarbagePackets = 0;
+            hasReceivedValidPacketSinceOpen = false;
+            lastOpenTime = Time.time;
             lastValidPacketTime = Time.time;
             Debug.Log("Opened: " + portName);
             return true;
@@ -247,6 +260,7 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
     void ApplyPacket(ParsedPacket packet)
     {
         consecutiveGarbagePackets = 0;
+        hasReceivedValidPacketSinceOpen = true;
         lastValidPacketTime = Time.time;
 
         if (!ignorePot)
@@ -317,6 +331,9 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
 
     void RegisterGarbagePacket(string line)
     {
+        if (!hasReceivedValidPacketSinceOpen && Time.time - lastOpenTime < firstPacketTimeout)
+            return;
+
         consecutiveGarbagePackets++;
         if (consecutiveGarbagePackets >= maxConsecutiveGarbagePackets)
         {
