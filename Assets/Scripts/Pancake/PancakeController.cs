@@ -327,6 +327,12 @@ public class PancakeController : MonoBehaviour
 
         scoopMoveRoutine = null;
     }
+
+    public void HandleDeath()
+    {
+        Debug.Log("Pancake Destroyed!");
+        ResetPancake();
+    }
     
     void OnCollisionEnter(Collision collision)
     {

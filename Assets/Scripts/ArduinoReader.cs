@@ -201,7 +201,7 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput
 
         bool currentActionButtonHeld = actionButton == 1;
 
-        state.LockPressed = Input.GetKeyDown(lockKey) || (currentActionButtonHeld && !lastActionButtonHeld);
+        state.LockPressed = Input.GetKeyDown(lockKey) || (currentActionButtonHeld && !lastActionButtonHeld); // TODO get rid of Input
         state.LockHeld = Input.GetKey(lockKey) || currentActionButtonHeld;
         state.LockReleased = Input.GetKeyUp(lockKey) || (!currentActionButtonHeld && lastActionButtonHeld);
 
