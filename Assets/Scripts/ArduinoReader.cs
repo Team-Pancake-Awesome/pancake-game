@@ -60,6 +60,8 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
     private float nextReconnectAttemptTime;
     private float lastValidPacketTime = -999f;
     private int consecutiveGarbagePackets;
+    private volatile bool isCloseInProgress;
+    private int malformedLogCounter;
 
     public bool IsBackgroundActivityEnabled { get; set; } = true;
 
@@ -81,16 +83,19 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
         if (!EnsureConnected())
             return;
 
-        if (serialPort.BytesToRead <= 0)
-        {
-            if (Time.time - lastValidPacketTime >= staleDataTimeout)
-                ForceReconnect("stale serial stream");
-
-            return;
-        }
-
         try
         {
+            if (serialPort == null || !serialPort.IsOpen)
+                return;
+
+            if (serialPort.BytesToRead <= 0)
+            {
+                if (Time.time - lastValidPacketTime >= staleDataTimeout)
+                    ForceReconnect("stale serial stream");
+
+                return;
+            }
+
             string line = serialPort.ReadLine().Trim();
 
             if (string.IsNullOrEmpty(line))
@@ -122,6 +127,9 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
 
     bool EnsureConnected()
     {
+        if (isCloseInProgress)
+            return false;
+
         if (serialPort != null && serialPort.IsOpen)
             return true;
 
@@ -133,6 +141,12 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
 
     bool TryOpenSerial()
     {
+        if (isCloseInProgress)
+        {
+            ScheduleReconnect();
+            return false;
+        }
+
         try
         {
             if (string.IsNullOrWhiteSpace(portName) || !SerialPort.GetPortNames().Contains(portName))
@@ -203,6 +217,7 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
 
         SerialPort portToClose = serialPort;
         serialPort = null;
+        isCloseInProgress = true;
 
         ThreadPool.QueueUserWorkItem(_ =>
         {
@@ -223,6 +238,8 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
                 catch
                 {
                 }
+
+                isCloseInProgress = false;
             }
         });
     }
@@ -307,7 +324,10 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
             return;
         }
 
-        Debug.LogWarning("Malformed serial packet: " + line);
+        // Throttle warning volume to avoid flooding Editor logs on noisy serial lines.
+        malformedLogCounter++;
+        if (malformedLogCounter % 15 == 0)
+            Debug.LogWarning("Malformed serial packet sample: " + line);
     }
 
     void UpdateConnectionStateDebug()
@@ -363,6 +383,16 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
     }
 
     void OnApplicationQuit()
+    {
+        CloseSerialAsync();
+    }
+
+    void OnDisable()
+    {
+        CloseSerialAsync();
+    }
+
+    void OnDestroy()
     {
         CloseSerialAsync();
     }
