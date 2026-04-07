@@ -7528,6 +7528,7 @@ MonoBehaviour:
   roll: 0
   gyroY: 0
   accelZ: 0
+  actionButton: 0
   lockKey: 32
   minPitchInput: 30
   maxPitchInput: -40
