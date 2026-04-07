@@ -29,6 +29,7 @@ public class WorkdayManager : MonoBehaviour
     public bool logEvents = true;
 
     public bool IsRunning => isRunning;
+    public bool IsLastCall => isLastCall;
     public float ElapsedSeconds => isRunning ? Mathf.Max(0f, Time.time - dayStartTime) : lastElapsedTime;
     public float RemainingSeconds => Mathf.Max(0f, workdayDurationSeconds - ElapsedSeconds);
     public float AverageStars => currentSummary.averageStars;
@@ -53,6 +54,7 @@ public class WorkdayManager : MonoBehaviour
 
     private System.Random rng;
     private bool isRunning;
+    private bool isLastCall;
     private float dayStartTime;
     private float lastElapsedTime;
     private float nextArrivalTime;
@@ -87,9 +89,17 @@ public class WorkdayManager : MonoBehaviour
         float now = Time.time;
         float elapsed = now - dayStartTime;
 
-        currentDifficulty = difficultyGenerator.Generate(difficultyConfig, elapsed, workdayDurationSeconds, rng);
+        if (!isLastCall && elapsed >= workdayDurationSeconds)
+        {
+            BeginLastCall();
+        }
 
-        TickArrivals(now);
+        if (!isLastCall)
+        {
+            currentDifficulty = difficultyGenerator.Generate(difficultyConfig, elapsed, workdayDurationSeconds, rng);
+            TickArrivals(now);
+        }
+
         TickExpirations(now);
         CleanupRecentRatings(now);
 
@@ -108,7 +118,7 @@ public class WorkdayManager : MonoBehaviour
             ServeSelectedOrder();
         }
 
-        if (elapsed >= workdayDurationSeconds)
+        if (isLastCall && activeOrders.Count == 0)
         {
             EndWorkday();
         }
@@ -120,6 +130,7 @@ public class WorkdayManager : MonoBehaviour
 
         rng = new System.Random(seed);
         isRunning = true;
+        isLastCall = false;
         dayStartTime = Time.time;
         lastElapsedTime = 0f;
         nextArrivalTime = dayStartTime;
@@ -142,6 +153,21 @@ public class WorkdayManager : MonoBehaviour
         }
     }
 
+    private void BeginLastCall()
+    {
+        if (isLastCall)
+        {
+            return;
+        }
+
+        isLastCall = true;
+
+        if (logEvents)
+        {
+            Debug.Log("Workday timer ended. Last call started: finish or fail remaining orders.");
+        }
+    }
+
     public void EndWorkday()
     {
         if (!isRunning)
@@ -156,6 +182,7 @@ public class WorkdayManager : MonoBehaviour
         }
 
         isRunning = false;
+        isLastCall = false;
         lastElapsedTime = Mathf.Min(workdayDurationSeconds, now - dayStartTime);
 
         currentSummary.Recalculate();
@@ -309,7 +336,7 @@ public class WorkdayManager : MonoBehaviour
         Rect panel = new(10f, 10f, 520f, 340f);
         GUILayout.BeginArea(panel, GUI.skin.box);
 
-        GUILayout.Label($"Workday Running: {isRunning}");
+        GUILayout.Label($"Workday Running: {isRunning} {(isLastCall ? "(last call)" : "")}");
         GUILayout.Label($"Time: {ElapsedSeconds:F1}s / {workdayDurationSeconds:F1}s");
         GUILayout.Label($"Orders Active: {activeOrders.Count} (max {currentDifficulty.maxConcurrentOrders})");
         GUILayout.Label($"Arrival Interval: {currentDifficulty.guestArrivalInterval:F2}s");
