@@ -5949,6 +5949,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spatulaController: {fileID: 1908231343}
+  periscopeCamera: {fileID: 963194227}
   offset: {x: 0, y: 1, z: -2.5}
   boundingBox:
     center: {x: 0, y: 0, z: 0}
@@ -5957,6 +5958,7 @@ MonoBehaviour:
   trackingRotateSpeed: 10
   resetRotateSpeed: 8
   pancakeLookOffset: {x: 0, y: 0.1, z: 0}
+  drawFovGizmo: 1
 --- !u!1 &1153410770
 GameObject:
   m_ObjectHideFlags: 0
