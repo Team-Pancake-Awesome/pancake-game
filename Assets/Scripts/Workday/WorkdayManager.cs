@@ -6,23 +6,25 @@ public class WorkdayManager : MonoBehaviour
 {
     [Header("References")]
     public WorkdayDifficultyConfig difficultyConfig;
-    public PancakeController pancakePrefab;
+    public List<WorkdayDifficultyConfig> dayDifficultyConfigs = new();
+    public bool loopDayConfigs = true;
+    public PancakeController pancakeBlueprint;
     public Transform pancakeSpawnPoint;
     public Transform pancakeSpawnParent;
 
-    [Header("Day Settings")]
-    [Min(30f)]
-    public float workdayDurationSeconds = 240f;
+    [Header("Session Settings")]
     public int daySeed = 20260401;
     public bool autoStartOnPlay = true;
 
     [Header("Debug")]
     public bool logEvents = true;
 
-    public bool IsRunning => isRunning;
-    public bool IsLastCall => isLastCall;
-    public float ElapsedSeconds => isRunning ? Mathf.Max(0f, Time.time - dayStartTime) : lastElapsedTime;
-    public float RemainingSeconds => Mathf.Max(0f, workdayDurationSeconds - ElapsedSeconds);
+    public bool IsRunning => currentStage == WorkdayStage.Work || currentStage == WorkdayStage.LastCall;
+    public bool IsLastCall => currentStage == WorkdayStage.LastCall;
+    public WorkdayStage CurrentStage => currentStage;
+    public int CurrentDayNumber => currentDayIndex + 1;
+    public float ElapsedSeconds => IsRunning ? Mathf.Max(0f, Time.time - dayStartTime) : lastElapsedTime;
+    public float RemainingSeconds => Mathf.Max(0f, CurrentWorkdayDurationSeconds - ElapsedSeconds);
     public float AverageStars => currentSummary.averageStars;
     public IReadOnlyList<GuestOrder> ActiveOrders => activeOrders;
     public IReadOnlyList<GuestRatingResult> Ratings => currentSummary.ratings;
@@ -30,6 +32,8 @@ public class WorkdayManager : MonoBehaviour
     public int CurrentMaxConcurrentOrders => currentDifficulty.maxConcurrentOrders;
     public float CurrentGuestArrivalInterval => currentDifficulty.guestArrivalInterval;
     public float CurrentOrderComplexity01 => currentDifficulty.orderComplexity01;
+    public float CurrentWorkdayDurationSeconds => Mathf.Max(30f, currentDayConfig != null ? currentDayConfig.workdayDurationSeconds : 240f);
+    public WorkdayDifficultyConfig CurrentDayConfig => currentDayConfig;
 
     public event Action<GuestOrder> OnOrderCreated;
     public event Action<GuestOrder, GuestRatingResult> OnOrderServed;
@@ -46,13 +50,18 @@ public class WorkdayManager : MonoBehaviour
 
     private WorkdaySummary currentSummary = new();
     private WorkdayDifficultyState currentDifficulty = new();
+    private WorkdayStage currentStage = WorkdayStage.Begin;
+    private WorkdayDifficultyConfig queuedDayConfig;
+    private WorkdayDifficultyConfig currentDayConfig;
 
     private System.Random rng;
-    private bool isRunning;
-    private bool isLastCall;
     private float dayStartTime;
     private float lastElapsedTime;
+    private float stageStartTime;
     private float nextArrivalTime;
+    private int runSeedBase;
+    private int queuedDayIndex = -1;
+    private int currentDayIndex = -1;
     private int nextGuestId = 1;
     private int nextOrderId = 1;
     private int selectedOrderIndex;
@@ -68,79 +77,36 @@ public class WorkdayManager : MonoBehaviour
 
     private void Update()
     {
-        if (!isRunning)
+        switch (currentStage)
         {
-            return;
-        }
-
-        float now = Time.time;
-        float elapsed = now - dayStartTime;
-
-        if (!isLastCall && elapsed >= workdayDurationSeconds)
-        {
-            BeginLastCall();
-        }
-
-        if (!isLastCall)
-        {
-            currentDifficulty = difficultyGenerator.Generate(difficultyConfig, elapsed, workdayDurationSeconds, rng);
-            TickArrivals(now);
-        }
-
-        TickExpirations(now);
-
-        if (isLastCall && activeOrders.Count == 0)
-        {
-            EndWorkday();
+            case WorkdayStage.Begin:
+                TickBeginStage(Time.time);
+                return;
+            case WorkdayStage.Work:
+                TickWorkStage(Time.time);
+                return;
+            case WorkdayStage.LastCall:
+                TickLastCallStage(Time.time);
+                return;
+            case WorkdayStage.Rating:
+                TickRatingStage(Time.time);
+                return;
         }
     }
 
     public void BeginWorkday(int? overrideSeed = null)
     {
-        int seed = overrideSeed ?? daySeed;
-
-        rng = new System.Random(seed);
-        isRunning = true;
-        isLastCall = false;
-        dayStartTime = Time.time;
+        runSeedBase = overrideSeed ?? daySeed;
+        currentDayIndex = -1;
         lastElapsedTime = 0f;
-        nextArrivalTime = dayStartTime;
-        nextGuestId = 1;
-        nextOrderId = 1;
-        selectedOrderIndex = 0;
 
-        activeOrders.Clear();
-        guestsById.Clear();
-
-        currentSummary = new WorkdaySummary
-        {
-            dayDurationSeconds = workdayDurationSeconds
-        };
-
-        if (logEvents)
-        {
-            Debug.Log($"Workday started with seed {seed}.");
-        }
-    }
-
-    private void BeginLastCall()
-    {
-        if (isLastCall)
-        {
-            return;
-        }
-
-        isLastCall = true;
-
-        if (logEvents)
-        {
-            Debug.Log("Workday timer ended. Last call started: finish or fail remaining orders.");
-        }
+        // Start immediately when beginning a run.
+        EnterBeginStage(skipBeginDelay: true);
     }
 
     public void EndWorkday()
     {
-        if (!isRunning)
+        if (!IsRunning)
         {
             return;
         }
@@ -151,17 +117,8 @@ public class WorkdayManager : MonoBehaviour
             ExpireOrder(activeOrders[i], now);
         }
 
-        isRunning = false;
-        isLastCall = false;
-        lastElapsedTime = Mathf.Min(workdayDurationSeconds, now - dayStartTime);
-
-        currentSummary.Recalculate();
-        OnDayEnded?.Invoke(currentSummary);
-
-        if (logEvents)
-        {
-            Debug.Log($"Workday ended. Orders: {currentSummary.totalOrders}, Avg Stars: {currentSummary.averageStars:F2}");
-        }
+        CompleteCurrentDay(now);
+        EnterRatingStage();
     }
 
     public bool ServeOldestOrder()
@@ -184,9 +141,189 @@ public class WorkdayManager : MonoBehaviour
         MoveSelection(1);
     }
 
+    private void TickBeginStage(float now)
+    {
+        if (queuedDayConfig == null)
+        {
+            return;
+        }
+
+        float beginDuration = Mathf.Max(0f, queuedDayConfig.beginStageSeconds);
+        if (now - stageStartTime < beginDuration)
+        {
+            return;
+        }
+
+        StartQueuedDay(now);
+    }
+
+    private void TickWorkStage(float now)
+    {
+        float elapsed = now - dayStartTime;
+
+        if (elapsed >= CurrentWorkdayDurationSeconds)
+        {
+            EnterLastCallStage();
+            return;
+        }
+
+        currentDifficulty = difficultyGenerator.Generate(currentDayConfig, elapsed, CurrentWorkdayDurationSeconds, rng);
+        TickArrivals(now);
+        TickExpirations(now);
+    }
+
+    private void TickLastCallStage(float now)
+    {
+        TickExpirations(now);
+
+        if (activeOrders.Count == 0)
+        {
+            CompleteCurrentDay(now);
+            EnterRatingStage();
+        }
+    }
+
+    private void TickRatingStage(float now)
+    {
+        float ratingDuration = currentDayConfig != null ? Mathf.Max(0f, currentDayConfig.ratingStageSeconds) : 0f;
+        if (now - stageStartTime < ratingDuration)
+        {
+            return;
+        }
+
+        EnterBeginStage(skipBeginDelay: false);
+    }
+
+    private void EnterBeginStage(bool skipBeginDelay)
+    {
+        int nextDayIndex = currentDayIndex + 1;
+        if (!TryResolveDayConfig(nextDayIndex, out WorkdayDifficultyConfig nextConfig, out int resolvedIndex))
+        {
+            queuedDayConfig = null;
+            queuedDayIndex = -1;
+            currentStage = WorkdayStage.Begin;
+
+            if (logEvents)
+            {
+                Debug.Log("No additional day configs available. Workday loop stopped at BEGIN stage.");
+            }
+
+            return;
+        }
+
+        queuedDayConfig = nextConfig;
+        queuedDayIndex = resolvedIndex;
+        currentStage = WorkdayStage.Begin;
+        stageStartTime = Time.time;
+
+        if (skipBeginDelay)
+        {
+            stageStartTime -= Mathf.Max(0f, queuedDayConfig.beginStageSeconds);
+        }
+    }
+
+    private void StartQueuedDay(float now)
+    {
+        currentDayIndex = queuedDayIndex;
+        currentDayConfig = queuedDayConfig;
+        queuedDayIndex = -1;
+        queuedDayConfig = null;
+
+        int seed = runSeedBase + (currentDayIndex * 9973);
+        rng = new System.Random(seed);
+
+        currentStage = WorkdayStage.Work;
+        stageStartTime = now;
+        dayStartTime = now;
+        lastElapsedTime = 0f;
+        nextArrivalTime = dayStartTime;
+        nextGuestId = 1;
+        nextOrderId = 1;
+        selectedOrderIndex = 0;
+
+        activeOrders.Clear();
+        guestsById.Clear();
+
+        currentSummary = new WorkdaySummary
+        {
+            dayDurationSeconds = CurrentWorkdayDurationSeconds
+        };
+
+        currentDifficulty = difficultyGenerator.Generate(currentDayConfig, 0f, CurrentWorkdayDurationSeconds, rng);
+
+        if (logEvents)
+        {
+            Debug.Log($"Day {CurrentDayNumber} started with seed {seed}.");
+        }
+    }
+
+    private void EnterLastCallStage()
+    {
+        if (currentStage == WorkdayStage.LastCall)
+        {
+            return;
+        }
+
+        currentStage = WorkdayStage.LastCall;
+        stageStartTime = Time.time;
+
+        if (logEvents)
+        {
+            Debug.Log($"Day {CurrentDayNumber}: last call started. Finish or fail remaining orders.");
+        }
+    }
+
+    private void EnterRatingStage()
+    {
+        currentStage = WorkdayStage.Rating;
+        stageStartTime = Time.time;
+    }
+
+    private void CompleteCurrentDay(float now)
+    {
+        lastElapsedTime = Mathf.Min(CurrentWorkdayDurationSeconds, now - dayStartTime);
+
+        currentSummary.Recalculate();
+        OnDayEnded?.Invoke(currentSummary);
+
+        if (logEvents)
+        {
+            Debug.Log($"Day {CurrentDayNumber} ended. Orders: {currentSummary.totalOrders}, Avg Stars: {currentSummary.averageStars:F2}");
+        }
+    }
+
+    private bool TryResolveDayConfig(int requestedDayIndex, out WorkdayDifficultyConfig config, out int resolvedDayIndex)
+    {
+        if (dayDifficultyConfigs != null && dayDifficultyConfigs.Count > 0)
+        {
+            if (loopDayConfigs)
+            {
+                int safeCount = dayDifficultyConfigs.Count;
+                resolvedDayIndex = requestedDayIndex;
+                config = dayDifficultyConfigs[requestedDayIndex % safeCount];
+                return config != null;
+            }
+
+            if (requestedDayIndex >= 0 && requestedDayIndex < dayDifficultyConfigs.Count)
+            {
+                resolvedDayIndex = requestedDayIndex;
+                config = dayDifficultyConfigs[requestedDayIndex];
+                return config != null;
+            }
+
+            config = null;
+            resolvedDayIndex = requestedDayIndex;
+            return false;
+        }
+
+        resolvedDayIndex = requestedDayIndex;
+        config = difficultyConfig;
+        return config != null;
+    }
+
     private bool ServeOrderAtIndex(int index)
     {
-        if (!isRunning || activeOrders.Count == 0)
+        if (!IsRunning || activeOrders.Count == 0)
         {
             return false;
         }
@@ -261,7 +398,7 @@ public class WorkdayManager : MonoBehaviour
             nextOrderId++,
             guest,
             currentDifficulty,
-            difficultyConfig,
+            currentDayConfig,
             now,
             rng);
 
@@ -353,14 +490,14 @@ public class WorkdayManager : MonoBehaviour
         // Ensure we break scoop/hold links before replacement and removal.
         servedPancake.Drop();
 
-        GameObject spawnTemplate = pancakePrefab != null
-            ? pancakePrefab.gameObject
+        GameObject spawnTemplate = pancakeBlueprint != null
+            ? pancakeBlueprint.gameObject
             : servedPancake.gameObject;
 
         if (spawnTemplate != null)
         {
-            Transform spawnTransform = pancakeSpawnPoint ?? sourceTransform;
-            Transform spawnParent = pancakeSpawnParent ?? sourceTransform.parent;
+            Transform spawnTransform = pancakeSpawnPoint != null ? pancakeSpawnPoint : sourceTransform;
+            Transform spawnParent = pancakeSpawnParent != null ? pancakeSpawnParent : sourceTransform.parent;
 
             // TODO: Replace this instantiate path with object pooling.
             Instantiate(

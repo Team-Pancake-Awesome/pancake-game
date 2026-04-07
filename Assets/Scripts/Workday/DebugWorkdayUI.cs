@@ -55,8 +55,9 @@ public class DebugWorkdayUI : MonoBehaviour
         Rect panel = new(10f, 10f, 520f, 340f);
         GUILayout.BeginArea(panel, GUI.skin.box);
 
+        GUILayout.Label($"Stage: {workdayManager.CurrentStage} | Day: {workdayManager.CurrentDayNumber}");
         GUILayout.Label($"Workday Running: {workdayManager.IsRunning} {(workdayManager.IsLastCall ? "(last call)" : "")}");
-        GUILayout.Label($"Time: {workdayManager.ElapsedSeconds:F1}s / {workdayManager.workdayDurationSeconds:F1}s");
+        GUILayout.Label($"Time: {workdayManager.ElapsedSeconds:F1}s / {workdayManager.CurrentWorkdayDurationSeconds:F1}s");
         GUILayout.Label($"Orders Active: {workdayManager.ActiveOrders.Count} (max {workdayManager.CurrentMaxConcurrentOrders})");
         GUILayout.Label($"Arrival Interval: {workdayManager.CurrentGuestArrivalInterval:F2}s");
         GUILayout.Label($"Complexity: {workdayManager.CurrentOrderComplexity01:F2}");

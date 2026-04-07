@@ -6962,11 +6962,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a3011ff0b42f8d2b3b11f850118ab1dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  difficultyConfig: {fileID: 11400000, guid: f02a83404b1bcc9028448d5c62a8370f, type: 2}
-  pancakePrefab: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
+  difficultyConfig: {fileID: 0}
+  dayDifficultyConfigs:
+  - {fileID: 11400000, guid: f02a83404b1bcc9028448d5c62a8370f, type: 2}
+  loopDayConfigs: 1
+  pancakeBlueprint: {fileID: 0}
   pancakeSpawnPoint: {fileID: 1470733602}
   pancakeSpawnParent: {fileID: 0}
-  workdayDurationSeconds: 240
   daySeed: 20260401
   autoStartOnPlay: 1
   logEvents: 1
