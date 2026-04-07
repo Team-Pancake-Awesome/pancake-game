@@ -7648,9 +7648,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 593c105aa68338a42af6b08c60f90d80, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentInputMode: 1
-  arduinoInput: {fileID: 1908231347}
-  mouseInput: {fileID: 1908231346}
+  currentInputMode: 0
+  primaryInputComponent: {fileID: 1908231347}
+  secondaryInputComponent: {fileID: 1908231346}
   rotationSmoothSpeed: 12
   minAngle: -20
   maxAngle: 60
@@ -7716,9 +7716,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   portName: 
   baudRate: 115200
+  reconnectInterval: 1.5
+  staleDataTimeout: 1.2
+  maxConsecutiveGarbagePackets: 12
   sensorValue: 0
   rawPot: 0
-  ignorePot: 1
+  ignorePot: 0
+  enableKeyboardLockFallback: 0
   pitch: 0
   roll: 0
   gyroY: 0
@@ -7734,6 +7738,8 @@ MonoBehaviour:
   cooldown: 0.35
   debugGyroY: 0
   debugRoll: 0
+  isConnected: 0
+  secondsSinceLastValidPacket: 0
 --- !u!1 &2048515133
 GameObject:
   m_ObjectHideFlags: 0

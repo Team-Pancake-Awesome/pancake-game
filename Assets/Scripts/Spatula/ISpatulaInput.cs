@@ -15,3 +15,8 @@ public interface ISpatulaInput
 {
     bool TryGetControlState(out SpatulaControlState state);
 }
+
+public interface ISpatulaInputBackgroundActivity
+{
+    bool IsBackgroundActivityEnabled { get; set; }
+}

@@ -3,12 +3,19 @@ using System.IO.Ports;
 using System.Linq;
 using System.Globalization;
 using System;
+using System.Threading;
 
-public class ArduinoReader : MonoBehaviour, ISpatulaInput
+public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgroundActivity
 {
     [Header("Serial Port Settings")]
-    public string portName = "COM4";
+    public string portName = "";
     public int baudRate = 115200;
+    [Tooltip("How often to retry opening a serial connection when unavailable")]
+    public float reconnectInterval = 1.5f;
+    [Tooltip("Consider the stream stale if no valid packet arrives in this many seconds")]
+    public float staleDataTimeout = 1.2f;
+    [Tooltip("Reconnect after this many consecutive malformed packets")]
+    public int maxConsecutiveGarbagePackets = 12;
 
     private SerialPort serialPort;
 
@@ -20,6 +27,8 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput
     [Header("Debug")]
     [Tooltip("Ignore potentiometer input during play for debugging.")]
     public bool ignorePot = false;
+    [Tooltip("Allows keyboard lock input as a debug fallback while using Arduino")]
+    public bool enableKeyboardLockFallback = false;
 
     [Header("Gyro Data")]
     public float pitch = 0f;
@@ -29,7 +38,7 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput
     public int actionButton = 0; //space 
 
     [Header("Arduino Controls")]
-    public KeyCode lockKey = KeyCode.Space;
+    public KeyCode lockKey = KeyCode.Space; // TODO remove
     public float minPitchInput = 30f;
     public float maxPitchInput = -40f;
     public float rollDeadzone = 2f;
@@ -43,42 +52,42 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput
     [Header("Gesture Debug")]
     public float debugGyroY;
     public float debugRoll;
+    public bool isConnected;
+    public float secondsSinceLastValidPacket;
 
     private float lastFlipTime = -999f;
     private bool lastActionButtonHeld;
+    private float nextReconnectAttemptTime;
+    private float lastValidPacketTime = -999f;
+    private int consecutiveGarbagePackets;
+
+    public bool IsBackgroundActivityEnabled { get; set; } = true;
 
     void Start()
     {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(portName))
-                portName = FindPort();
-
-            if (string.IsNullOrWhiteSpace(portName))
-            {
-                Debug.LogWarning("No serial ports found.");
-                return;
-            }
-
-            serialPort = new SerialPort(portName, baudRate)
-            {
-                ReadTimeout = 500
-            };
-
-            serialPort.Open();
-            serialPort.DiscardInBuffer();
-            Debug.Log("Opened: " + portName);
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogWarning("Could not open serial port: " + e.Message);
-        }
+        TryOpenSerial();
     }
 
     void Update()
     {
-        if (serialPort == null || !serialPort.IsOpen || serialPort.BytesToRead <= 0)
+        if (!IsBackgroundActivityEnabled)
+        {
+            UpdateConnectionStateDebug();
             return;
+        }
+
+        UpdateConnectionStateDebug();
+
+        if (!EnsureConnected())
+            return;
+
+        if (serialPort.BytesToRead <= 0)
+        {
+            if (Time.time - lastValidPacketTime >= staleDataTimeout)
+                ForceReconnect("stale serial stream");
+
+            return;
+        }
 
         try
         {
@@ -94,43 +103,222 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput
                 return;
             }
 
-            string[] values = line.Split(',');
-
-            if (values.Length >= 6)
+            if (!TryParsePacket(line, out ParsedPacket packet))
             {
-                 if (int.TryParse(values[0], out int parsedPot) &&
-                    float.TryParse(values[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedPitch) &&
-                    float.TryParse(values[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedRoll) &&
-                    float.TryParse(values[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedGyro) &&
-                    float.TryParse(values[4], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedAccel) &&
-                    int.TryParse(values[5], out int parsedActionButton))
-                {
-                    if (!ignorePot)
-                    {
-                        rawPot = parsedPot;
-                        sensorValue = Mathf.Clamp01(rawPot / 1023f);
-                    }
-                    else
-                    {
-                        rawPot = 0;
-                        sensorValue = 0f;
-                    }
-
-                    pitch = parsedPitch;
-                    roll = parsedRoll;
-                    gyroY = parsedGyro;
-                    accelZ = parsedAccel;
-                    actionButton = parsedActionButton;
-                }
+                RegisterGarbagePacket(line);
+                return;
             }
+
+            ApplyPacket(packet);
         }
         catch (TimeoutException)
         {
         }
         catch (System.Exception e)
         {
-            Debug.Log("Serial error: " + e.Message);
+            ForceReconnect("serial read error: " + e.Message);
         }
+    }
+
+    bool EnsureConnected()
+    {
+        if (serialPort != null && serialPort.IsOpen)
+            return true;
+
+        if (Time.time < nextReconnectAttemptTime)
+            return false;
+
+        return TryOpenSerial();
+    }
+
+    bool TryOpenSerial()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(portName) || !SerialPort.GetPortNames().Contains(portName))
+                portName = FindPort();
+
+            if (string.IsNullOrWhiteSpace(portName))
+            {
+                Debug.LogWarning("No serial ports found.");
+                ScheduleReconnect();
+                return false;
+            }
+
+            if (serialPort != null)
+            {
+                if (serialPort.IsOpen)
+                {
+                    CloseSerialAsync();
+                    ScheduleReconnect();
+                    return false;
+                }
+
+                try
+                {
+                    serialPort.Dispose();
+                }
+                catch
+                {
+                }
+
+                serialPort = null;
+            }
+            serialPort = new SerialPort(portName, baudRate)
+            {
+                ReadTimeout = 500
+            };
+
+            serialPort.Open();
+            serialPort.DiscardInBuffer();
+            consecutiveGarbagePackets = 0;
+            lastValidPacketTime = Time.time;
+            Debug.Log("Opened: " + portName);
+            return true;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning("Could not open serial port: " + e.Message);
+            ScheduleReconnect();
+            return false;
+        }
+    }
+
+    void ScheduleReconnect()
+    {
+        nextReconnectAttemptTime = Time.time + Mathf.Max(0.1f, reconnectInterval);
+    }
+
+    void ForceReconnect(string reason)
+    {
+        Debug.LogWarning("Reconnecting serial: " + reason);
+        CloseSerialAsync();
+        ScheduleReconnect();
+    }
+
+    void CloseSerialAsync()
+    {
+        if (serialPort == null)
+            return;
+
+        SerialPort portToClose = serialPort;
+        serialPort = null;
+
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            try
+            {
+                if (portToClose.IsOpen)
+                    portToClose.Close();
+            }
+            catch
+            {
+            }
+            finally
+            {
+                try
+                {
+                    portToClose.Dispose();
+                }
+                catch
+                {
+                }
+            }
+        });
+    }
+
+    void ApplyPacket(ParsedPacket packet)
+    {
+        consecutiveGarbagePackets = 0;
+        lastValidPacketTime = Time.time;
+
+        if (!ignorePot)
+        {
+            rawPot = packet.Pot;
+            sensorValue = Mathf.Clamp01(rawPot / 1023f);
+        }
+        else
+        {
+            rawPot = 0;
+            sensorValue = 0f;
+        }
+
+        pitch = packet.Pitch;
+        roll = packet.Roll;
+        gyroY = packet.GyroY;
+        accelZ = packet.AccelZ;
+        actionButton = packet.ActionButton;
+    }
+
+    bool TryParsePacket(string line, out ParsedPacket packet)
+    {
+        packet = default;
+
+        string[] values = line.Split(',');
+        if (values.Length < 6)
+            return false;
+
+        if (!int.TryParse(values[0], out int parsedPot))
+            return false;
+
+        if (!float.TryParse(values[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedPitch))
+            return false;
+
+        if (!float.TryParse(values[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedRoll))
+            return false;
+
+        if (!float.TryParse(values[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedGyro))
+            return false;
+
+        if (!float.TryParse(values[4], NumberStyles.Float, CultureInfo.InvariantCulture, out float parsedAccel))
+            return false;
+
+        if (!int.TryParse(values[5], out int parsedActionButton))
+            return false;
+
+        if (!IsFinite(parsedPitch) || !IsFinite(parsedRoll) || !IsFinite(parsedGyro) || !IsFinite(parsedAccel))
+            return false;
+
+        if (parsedPot < 0 || parsedPot > 1023)
+            return false;
+
+        if (parsedActionButton != 0 && parsedActionButton != 1)
+            return false;
+
+        packet = new ParsedPacket
+        {
+            Pot = parsedPot,
+            Pitch = parsedPitch,
+            Roll = parsedRoll,
+            GyroY = parsedGyro,
+            AccelZ = parsedAccel,
+            ActionButton = parsedActionButton
+        };
+
+        return true;
+    }
+
+    void RegisterGarbagePacket(string line)
+    {
+        consecutiveGarbagePackets++;
+        if (consecutiveGarbagePackets >= maxConsecutiveGarbagePackets)
+        {
+            ForceReconnect("too many malformed packets");
+            return;
+        }
+
+        Debug.LogWarning("Malformed serial packet: " + line);
+    }
+
+    void UpdateConnectionStateDebug()
+    {
+        isConnected = serialPort != null && serialPort.IsOpen;
+        secondsSinceLastValidPacket = lastValidPacketTime < 0f ? float.PositiveInfinity : Time.time - lastValidPacketTime;
+    }
+
+    static bool IsFinite(float value)
+    {
+        return !(float.IsNaN(value) || float.IsInfinity(value));
     }
 
     string FindPort()
@@ -176,8 +364,7 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput
 
     void OnApplicationQuit()
     {
-        if (serialPort != null && serialPort.IsOpen)
-            serialPort.Close();
+        CloseSerialAsync();
     }
 
     public bool TryGetControlState(out SpatulaControlState state)
@@ -186,6 +373,9 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput
 
         // Require an open serial stream before exposing control input.
         if (serialPort == null || !serialPort.IsOpen)
+            return false;
+
+        if (Time.time - lastValidPacketTime > staleDataTimeout)
             return false;
 
         float currentRoll = invertRoll ? -roll : roll;
@@ -201,9 +391,13 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput
 
         bool currentActionButtonHeld = actionButton == 1;
 
-        state.LockPressed = Input.GetKeyDown(lockKey) || (currentActionButtonHeld && !lastActionButtonHeld); // TODO get rid of Input
-        state.LockHeld = Input.GetKey(lockKey) || currentActionButtonHeld;
-        state.LockReleased = Input.GetKeyUp(lockKey) || (!currentActionButtonHeld && lastActionButtonHeld);
+        bool keyboardPressed = enableKeyboardLockFallback && Input.GetKeyDown(lockKey);
+        bool keyboardHeld = enableKeyboardLockFallback && Input.GetKey(lockKey);
+        bool keyboardReleased = enableKeyboardLockFallback && Input.GetKeyUp(lockKey);
+
+        state.LockPressed = keyboardPressed || (currentActionButtonHeld && !lastActionButtonHeld);
+        state.LockHeld = keyboardHeld || currentActionButtonHeld;
+        state.LockReleased = keyboardReleased || (!currentActionButtonHeld && lastActionButtonHeld);
 
         lastActionButtonHeld = currentActionButtonHeld;
 
@@ -221,5 +415,15 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput
         }
 
         return true;
+    }
+
+    struct ParsedPacket
+    {
+        public int Pot;
+        public float Pitch;
+        public float Roll;
+        public float GyroY;
+        public float AccelZ;
+        public int ActionButton;
     }
 }
