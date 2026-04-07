@@ -37,15 +37,14 @@ public class FlipGestureDetector : MonoBehaviour, ISpatulaInput
         debugRoll = roll;
 
         state.PotValue = Mathf.Clamp01(reader.sensorValue);
-        state.HorizontalInput = Mathf.Abs(roll) > rollDeadzone ? roll : 0f;
+        bool currentActionButtonHeld = reader.actionButton == 1;
+        bool currentLockHeld = Input.GetKey(lockKey) || currentActionButtonHeld;
+        state.HorizontalInput = currentLockHeld ? 0f : (Mathf.Abs(roll) > rollDeadzone ? roll : 0f);
         float normalizedPitch = Mathf.InverseLerp(minPitchInput, maxPitchInput, pitch);
         state.PitchNormalized = Mathf.Clamp01(normalizedPitch);
 
-
-        bool currentActionButtonHeld = reader.actionButton == 1;
-
         state.LockPressed = Input.GetKeyDown(lockKey) || (currentActionButtonHeld && !lastActionButtonHeld);
-        state.LockHeld = Input.GetKey(lockKey) || currentActionButtonHeld;
+        state.LockHeld = currentLockHeld;
         state.LockReleased = Input.GetKeyUp(lockKey) || (!currentActionButtonHeld && lastActionButtonHeld);
 
         lastActionButtonHeld = currentActionButtonHeld;

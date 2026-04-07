@@ -6,7 +6,7 @@ Adafruit_MPU6050 mpu;
 
 const int potPin = A3;
 const int buttonPin = 12;
-const int actionButtonPin = 11;
+const int actionButtonPin = 13;
 bool lastButtonState = HIGH;
 
 int seven = 7;
