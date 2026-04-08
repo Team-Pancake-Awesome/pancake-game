@@ -76,7 +76,7 @@ public class MouseInput : MonoBehaviour, ISpatulaInput
             state.SnapRequested = true;
             state.FlipStrength = strength;
             
-            Debug.Log($"MOUSE FLIP! Speed: {swipeSpeed:F2} | Strength: {strength:F2}");
+            //Debug.Log($"MOUSE FLIP! Speed: {swipeSpeed:F2} | Strength: {strength:F2}");
         }
         
         return true;
