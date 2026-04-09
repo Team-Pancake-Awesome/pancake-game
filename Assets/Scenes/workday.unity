@@ -7534,7 +7534,7 @@ MonoBehaviour:
   snapReturnSpeed: 12
   moveMultiplier: 0.07
   moveSmoothSpeed: 8
-  lockedMoveMultiplier: 1
+  lockedMoveMultiplier: 0
   scoopRadius: 2.5
   usePotForLock: 0
   potLockThreshold: 0.08
