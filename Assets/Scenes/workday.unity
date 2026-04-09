@@ -7526,6 +7526,7 @@ MonoBehaviour:
   currentInputMode: 0
   primaryInputComponent: {fileID: 1908231347}
   secondaryInputComponent: {fileID: 1908231346}
+  allowFallbackInput: 1
   rotationSmoothSpeed: 12
   minAngle: -20
   maxAngle: 60
@@ -7592,9 +7593,10 @@ MonoBehaviour:
   portName: 
   baudRate: 115200
   reconnectInterval: 1.5
-  staleDataTimeout: 1.2
+  staleDataTimeout: 4
   maxConsecutiveGarbagePackets: 12
   firstPacketTimeout: 6
+  ensureConnectedLogInterval: 2
   sensorValue: 0
   rawPot: 0
   ignorePot: 0
@@ -7609,10 +7611,15 @@ MonoBehaviour:
   maxPitchInput: -40
   rollDeadzone: 2
   invertRoll: 1
-  gyroYThreshold: 1.75
+  pitchFlipVelocityThreshold: 90
+  pitchDeltaThreshold: 2.5
+  pitchVelocitySmoothing: 0.25
   rollLimit: 45
   cooldown: 0.35
   debugGyroY: 0
+  debugPitch: 0
+  debugPitchDelta: 0
+  debugPitchVelocity: 0
   debugRoll: 0
   isConnected: 0
   secondsSinceLastValidPacket: 0.5
