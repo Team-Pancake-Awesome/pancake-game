@@ -8,9 +8,7 @@ public class WorkdayManager : MonoBehaviour
     public WorkdayDifficultyConfig difficultyConfig;
     public List<WorkdayDifficultyConfig> dayDifficultyConfigs = new();
     public bool loopDayConfigs = true;
-    public PancakeController pancakeBlueprint;
-    public Transform pancakeSpawnPoint;
-    public Transform pancakeSpawnParent;
+    public PancakeSpawner spawner;
 
     [Header("Session Settings")]
     public int daySeed = 20260401;
@@ -65,7 +63,6 @@ public class WorkdayManager : MonoBehaviour
     private int nextGuestId = 1;
     private int nextOrderId = 1;
     private int selectedOrderIndex;
-    private bool loggedMissingPancakePrefab;
 
     private void Start()
     {
@@ -215,6 +212,8 @@ public class WorkdayManager : MonoBehaviour
         queuedDayIndex = resolvedIndex;
         currentStage = WorkdayStage.Begin;
         stageStartTime = Time.time;
+
+        spawner.SpawnPancakesWithDelay(queuedDayConfig.numPancakesMin);
 
         if (skipBeginDelay)
         {
@@ -486,38 +485,25 @@ public class WorkdayManager : MonoBehaviour
             return;
         }
 
-        Transform sourceTransform = servedPancake.transform;
-
         // Ensure we break scoop/hold links before replacement and removal.
         servedPancake.Drop();
 
-        GameObject spawnTemplate = pancakeBlueprint != null
-            ? pancakeBlueprint.gameObject
-            : servedPancake.gameObject;
-
-        if (spawnTemplate != null)
+        if (!PancakeRegistry.TryGetInstance(out PancakeRegistry registry))
         {
-            Transform spawnTransform = pancakeSpawnPoint != null ? pancakeSpawnPoint : sourceTransform;
-            Transform spawnParent = pancakeSpawnParent != null ? pancakeSpawnParent : sourceTransform.parent;
-
-            // TODO: Replace this instantiate path with object pooling.
-            Instantiate(
-                spawnTemplate,
-                spawnTransform.position,
-                spawnTransform.rotation,
-                spawnParent);
+            Debug.LogError("No PancakeRegistry instance found. Cannot respawn served pancake.");
+            return;
         }
-        else if (logEvents && !loggedMissingPancakePrefab)
+
+        if (spawner != null && registry.Pancakes.Count < currentDayConfig.numPancakesMax)
         {
-            loggedMissingPancakePrefab = true;
+            spawner.SpawnPancake();
+        }
+        else if (logEvents)
+        {
             Debug.LogWarning("WorkdayManager has no usable pancake prefab/template. Served pancake removed without replacement.");
         }
 
-        if (PancakeRegistry.TryGetInstance(out PancakeRegistry registry))
-        {
-            registry.Unregister(servedPancake);
-        }
-
+        registry.Unregister(servedPancake);
         // Hide immediately so it is visually gone this frame.
         servedPancake.gameObject.SetActive(false);
         Destroy(servedPancake.gameObject);

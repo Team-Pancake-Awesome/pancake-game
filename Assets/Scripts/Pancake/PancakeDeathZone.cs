@@ -8,7 +8,7 @@ public class PancakeDeathZone : MonoBehaviour
         {
             if (other.TryGetComponent<PancakeController>(out var pancake))
             {
-                pancake.HandleDeath();
+                pancake.ResetPancake();
             }
         }
     }

@@ -54,4 +54,10 @@ public class WorkdayDifficultyConfig : ScriptableObject
 
     [Range(0f, 0.25f)]
     public float complexityJitter = 0.05f;
+
+    [Range(0, 100)]
+    public int numPancakesMin = 2;
+
+    [Range(0, 100)]
+    public int numPancakesMax = 10;
 }
