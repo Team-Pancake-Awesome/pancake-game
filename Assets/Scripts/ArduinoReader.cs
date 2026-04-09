@@ -172,6 +172,7 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
             return false;
         }
 
+        portName = FindPort();
         bool opened = TryOpenSerial();
         if (!opened)
             LogEnsureConnectedBlocked("open attempt failed");
