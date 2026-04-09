@@ -1,3 +1,4 @@
+using UnityEditor.EditorTools;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -14,6 +15,8 @@ public class SpatulaController : MonoBehaviour
     [FormerlySerializedAs("mouseInput")]
     [Tooltip("Secondary input source component (must implement ISpatulaInput)")]
     public MonoBehaviour secondaryInputComponent;
+    [Tooltip("If true, the controller will use the secondary input source when the primary is unavailable. If false, it will not attempt to read from the secondary source at all.")]
+    public bool allowFallbackInput = true;
 
     private ISpatulaInput primaryInput;
     private ISpatulaInput secondaryInput;
@@ -92,7 +95,7 @@ public class SpatulaController : MonoBehaviour
         {
             activeInput = preferred;
         }
-        else
+        else if (allowFallbackInput)
         {
             SetBackgroundActivityEnabled(fallback, true);
             hasInput = TryGetInputState(fallback, out inputState);

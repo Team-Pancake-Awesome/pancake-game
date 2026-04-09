@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using System.IO;
 using System.IO.Ports;
 using System.Linq;
 using System.Globalization;
@@ -18,6 +19,8 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
     public int maxConsecutiveGarbagePackets = 12;
     [Tooltip("Max time to wait for the first valid packet after opening the port")]
     public float firstPacketTimeout = 6f;
+    [Tooltip("Throttle interval in seconds for EnsureConnected debug logs")]
+    public float ensureConnectedLogInterval = 2f;
 
     private SerialPort serialPort;
 
@@ -47,12 +50,20 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
     public bool invertRoll = true;
 
     [Header("Gesture Tuning")]
-    public float gyroYThreshold = 1.75f;
+    public float pitchFlipVelocityThreshold = 90f;
+    [Tooltip("Minimum per-packet pitch change in degrees required before a flip can trigger")]
+    public float pitchDeltaThreshold = 2.5f;
+    [Range(0.01f, 1f)]
+    [Tooltip("Smoothing for pitch velocity. Lower values reduce noise but feel less snappy")]
+    public float pitchVelocitySmoothing = 0.25f;
     public float rollLimit = 45f;
     public float cooldown = 0.35f;
 
     [Header("Gesture Debug")]
     public float debugGyroY;
+    public float debugPitch;
+    public float debugPitchDelta;
+    public float debugPitchVelocity;
     public float debugRoll;
     public bool isConnected;
     public float secondsSinceLastValidPacket;
@@ -66,6 +77,12 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
     private int malformedLogCounter;
     private bool hasReceivedValidPacketSinceOpen;
     private float lastOpenTime = -999f;
+    private float lastEnsureConnectedLogTime = -999f;
+    private string lastEnsureConnectedReason = string.Empty;
+    private float lastPitchSample;
+    private float lastPitchSampleTime = -1f;
+    private float latestPitchDelta;
+    private float filteredPitchVelocity;
 
     public bool IsBackgroundActivityEnabled { get; set; } = true;
 
@@ -132,22 +149,54 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
         }
         catch (System.Exception e)
         {
-            ForceReconnect("serial read error: " + e.Message);
+            LogSerialError("Serial read error. Reconnecting.", e);
+            ForceReconnect("serial read error");
         }
     }
 
     bool EnsureConnected()
     {
         if (isCloseInProgress)
+        {
+            LogEnsureConnectedBlocked("serial close in progress");
             return false;
+        }
 
         if (serialPort != null && serialPort.IsOpen)
             return true;
 
         if (Time.time < nextReconnectAttemptTime)
+        {
+            float remainingSeconds = Mathf.Max(0f, nextReconnectAttemptTime - Time.time);
+            LogEnsureConnectedBlocked("waiting for reconnect timer", "remaining " + remainingSeconds.ToString("F2", CultureInfo.InvariantCulture) + "s");
             return false;
+        }
 
-        return TryOpenSerial();
+        bool opened = TryOpenSerial();
+        if (!opened)
+            LogEnsureConnectedBlocked("open attempt failed");
+
+        return opened;
+    }
+
+    void LogEnsureConnectedBlocked(string reason, string detail = null)
+    {
+        float interval = Mathf.Max(0.1f, ensureConnectedLogInterval);
+        bool reasonChanged = !string.Equals(reason, lastEnsureConnectedReason, StringComparison.Ordinal);
+
+        if (!reasonChanged && (Time.time - lastEnsureConnectedLogTime) < interval)
+            return;
+
+        lastEnsureConnectedLogTime = Time.time;
+        lastEnsureConnectedReason = reason;
+
+        if (string.IsNullOrEmpty(detail))
+        {
+            Debug.LogWarning("[ArduinoReader] EnsureConnected blocked: " + reason);
+            return;
+        }
+
+        Debug.LogWarning("[ArduinoReader] EnsureConnected blocked: " + reason + " (" + detail + ")");
     }
 
     bool TryOpenSerial()
@@ -205,10 +254,40 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
         }
         catch (System.Exception e)
         {
-            Debug.LogWarning("Could not open serial port: " + e.Message);
+            LogSerialError(BuildOpenSerialErrorMessage(e), e);
             ScheduleReconnect();
             return false;
         }
+    }
+
+    void LogSerialError(string message, Exception exception = null)
+    {
+        string prefix = "[ArduinoReader] ";
+        if (exception == null)
+        {
+            Debug.LogError(prefix + message);
+            return;
+        }
+
+        Debug.LogError(prefix + message + "\n" + exception);
+    }
+
+    string BuildOpenSerialErrorMessage(Exception exception)
+    {
+        string targetPort = string.IsNullOrWhiteSpace(portName) ? "<auto>" : portName;
+        string message = "Could not open serial port '" + targetPort + "' at " + baudRate + " baud. Reconnect scheduled.";
+
+        bool isLinux = Application.platform == RuntimePlatform.LinuxEditor ||
+                       Application.platform == RuntimePlatform.LinuxPlayer;
+
+        if (isLinux &&
+            exception is IOException &&
+            exception.Message.IndexOf("Permission denied", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            message += " Linux permissions hint: add your user to the serial device group (often 'uucp' or 'dialout') and relogin.";
+        }
+
+        return message;
     }
 
     void ScheduleReconnect()
@@ -257,6 +336,48 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
         });
     }
 
+    [ContextMenu("Force Connect")]
+    public void ForceConnectNow()
+    {
+        if (isCloseInProgress)
+        {
+            Debug.LogWarning("Cannot force connect while serial close is in progress.");
+            return;
+        }
+
+        CloseSerialBlocking();
+        nextReconnectAttemptTime = 0f;
+        TryOpenSerial();
+    }
+
+    void CloseSerialBlocking()
+    {
+        if (serialPort == null)
+            return;
+
+        SerialPort portToClose = serialPort;
+        serialPort = null;
+
+        try
+        {
+            if (portToClose.IsOpen)
+                portToClose.Close();
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            portToClose.Dispose();
+        }
+        catch
+        {
+        }
+
+        isCloseInProgress = false;
+    }
+
     void ApplyPacket(ParsedPacket packet)
     {
         consecutiveGarbagePackets = 0;
@@ -279,6 +400,24 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
         gyroY = packet.GyroY;
         accelZ = packet.AccelZ;
         actionButton = packet.ActionButton;
+
+        if (lastPitchSampleTime < 0f)
+        {
+            lastPitchSample = pitch;
+            lastPitchSampleTime = Time.time;
+            latestPitchDelta = 0f;
+            filteredPitchVelocity = 0f;
+            return;
+        }
+
+        float sampleDeltaTime = Mathf.Max(0.0001f, Time.time - lastPitchSampleTime);
+        latestPitchDelta = pitch - lastPitchSample;
+        float rawPitchVelocity = latestPitchDelta / sampleDeltaTime;
+        float smoothing = Mathf.Clamp01(pitchVelocitySmoothing);
+        filteredPitchVelocity = Mathf.Lerp(filteredPitchVelocity, rawPitchVelocity, smoothing);
+
+        lastPitchSample = pitch;
+        lastPitchSampleTime = Time.time;
     }
 
     bool TryParsePacket(string line, out ParsedPacket packet)
@@ -426,8 +565,12 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
             return false;
 
         float currentRoll = invertRoll ? -roll : roll;
+        float pitchVelocity = filteredPitchVelocity;
 
         debugGyroY = gyroY;
+        debugPitch = pitch;
+        debugPitchDelta = latestPitchDelta;
+        debugPitchVelocity = pitchVelocity;
         debugRoll = currentRoll;
 
         state.PotValue = Mathf.Clamp01(sensorValue);
@@ -448,14 +591,16 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
 
         lastActionButtonHeld = currentActionButtonHeld;
 
-        bool isFlickingUp = gyroY >= gyroYThreshold;
+        bool flipArmHeld = currentActionButtonHeld || keyboardHeld;
+        bool isFlickingUp = pitchVelocity >= pitchFlipVelocityThreshold;
+        bool pitchDeltaOK = Mathf.Abs(latestPitchDelta) >= pitchDeltaThreshold;
         bool rollOK = Mathf.Abs(currentRoll) <= rollLimit;
         bool cooldownOK = (Time.time - lastFlipTime) >= cooldown;
 
-        if (isFlickingUp && rollOK && cooldownOK)
+        if (flipArmHeld && isFlickingUp && pitchDeltaOK && rollOK && cooldownOK)
         {
             lastFlipTime = Time.time;
-            float strength = Mathf.Clamp(gyroY / gyroYThreshold, 1f, 2.5f);
+            float strength = Mathf.Clamp(pitchVelocity / Mathf.Max(0.1f, pitchFlipVelocityThreshold), 1f, 2.5f);
             state.FlipTriggered = true;
             state.SnapRequested = true;
             state.FlipStrength = strength;
@@ -464,6 +609,18 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
         return true;
     }
 
+    [ContextMenu("Refind Port")]
+    public void ForceRefindPortNow()
+    {
+        if (isCloseInProgress)
+        {
+            Debug.LogWarning("Cannot refind port while serial close is in progress.");
+            return;
+        }
+
+        portName = FindPort();
+        Debug.Log("Refind Port: " + (string.IsNullOrEmpty(portName) ? "No port found" : portName));
+    }
     struct ParsedPacket
     {
         public int Pot;
