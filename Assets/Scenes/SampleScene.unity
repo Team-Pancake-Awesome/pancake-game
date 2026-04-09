@@ -5949,7 +5949,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spatulaController: {fileID: 1908231343}
-  periscopeCamera: {fileID: 0}
   offset: {x: 0, y: 1, z: -2.5}
   boundingBox:
     center: {x: 0, y: 0, z: 0}
@@ -5958,7 +5957,6 @@ MonoBehaviour:
   trackingRotateSpeed: 10
   resetRotateSpeed: 8
   pancakeLookOffset: {x: 0, y: 0.1, z: 0}
-  drawFovGizmo: 1
 --- !u!1 &1153410770
 GameObject:
   m_ObjectHideFlags: 0
@@ -6964,13 +6962,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   difficultyConfig: {fileID: 11400000, guid: f02a83404b1bcc9028448d5c62a8370f, type: 2}
-  dayDifficultyConfigs: []
-  loopDayConfigs: 1
-  pancakeBlueprint: {fileID: 0}
+  pancakePrefab: {fileID: 6755897864106887595, guid: 8bbabac43308d80439d113773f6e58c5, type: 3}
   pancakeSpawnPoint: {fileID: 1470733602}
   pancakeSpawnParent: {fileID: 0}
+  workdayDurationSeconds: 240
   daySeed: 20260401
   autoStartOnPlay: 1
+  serveCurrentOrderKey: 13
+  selectPreviousOrderKey: 276
+  selectNextOrderKey: 275
+  recentRatingDisplaySeconds: 2
   logEvents: 1
 --- !u!4 &1670405432
 Transform:
@@ -7395,10 +7396,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 593c105aa68338a42af6b08c60f90d80, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentInputMode: 0
-  primaryInputComponent: {fileID: 1908231347}
-  secondaryInputComponent: {fileID: 1908231346}
-  allowFallbackInput: 0
+  currentInputMode: 1
+  arduinoInput: {fileID: 1908231347}
+  mouseInput: {fileID: 1908231346}
   rotationSmoothSpeed: 12
   minAngle: -20
   maxAngle: 60
@@ -7406,7 +7406,7 @@ MonoBehaviour:
   snapReturnSpeed: 12
   moveMultiplier: 0.07
   moveSmoothSpeed: 8
-  lockedMoveMultiplier: 0
+  lockedMoveMultiplier: 1
   scoopRadius: 2.5
   usePotForLock: 0
   potLockThreshold: 0.08
@@ -7464,15 +7464,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   portName: 
   baudRate: 115200
-  reconnectInterval: 1.5
-  staleDataTimeout: 1.2
-  maxConsecutiveGarbagePackets: 12
-  firstPacketTimeout: 6
-  ensureConnectedLogInterval: 2
   sensorValue: 0
   rawPot: 0
   ignorePot: 1
-  enableKeyboardLockFallback: 0
   pitch: 0
   roll: 0
   gyroY: 0
@@ -7483,15 +7477,11 @@ MonoBehaviour:
   maxPitchInput: -40
   rollDeadzone: 2
   invertRoll: 1
-  pitchFlipVelocityThreshold: 160
+  gyroYThreshold: 1.75
   rollLimit: 45
   cooldown: 0.35
   debugGyroY: 0
-  debugPitch: 0
-  debugPitchVelocity: 0
   debugRoll: 0
-  isConnected: 0
-  secondsSinceLastValidPacket: 0
 --- !u!1 &2048515133
 GameObject:
   m_ObjectHideFlags: 0
