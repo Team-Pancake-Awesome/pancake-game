@@ -36,7 +36,6 @@ public class PancakeController : MonoBehaviour
     public float torqueMultiplier = 150f;
 
     [Header("Testing")]
-    public Transform spawnPoint;
     public KeyCode resetKey = KeyCode.R;
     public KeyCode testLaunchKey = KeyCode.T;
 
@@ -53,12 +52,19 @@ public class PancakeController : MonoBehaviour
     private bool hasScoopedLocalOffset = false;
     private float scoopedWorldZ;
     private Coroutine scoopMoveRoutine;
+    private PancakeSpawner spawner;
 
     void OnEnable()
     {
         if (!Application.isPlaying)
         {
             return;
+        }
+
+        spawner = FindObjectOfType<PancakeSpawner>();
+        if (spawner == null)
+        {
+            Debug.LogError("PancakeSpawner not found!");
         }
 
         PancakeRegistry.Instance.Register(this);
@@ -241,9 +247,9 @@ public class PancakeController : MonoBehaviour
             }
         }
         
-        if (spawnPoint != null)
+        if (spawner != null)
         {
-            transform.SetPositionAndRotation(spawnPoint.position, spawnPoint.rotation);
+            spawner.RespawnPancake(this);
         }
 
         if (rb != null)

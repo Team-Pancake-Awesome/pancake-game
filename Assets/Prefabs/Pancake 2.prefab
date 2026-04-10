@@ -11,12 +11,12 @@ GameObject:
   - component: {fileID: 4219512339430677529}
   - component: {fileID: 1244404313360783125}
   - component: {fileID: 8202267144567771381}
-  - component: {fileID: 663315323072348681}
   - component: {fileID: 5674235829562034230}
   - component: {fileID: 6755897864106887595}
+  - component: {fileID: 6931377328333996378}
   m_Layer: 7
   m_Name: Pancake 2
-  m_TagString: Untagged
+  m_TagString: Pancake
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -86,29 +86,6 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!136 &663315323072348681
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6495815784033702245}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5000001
-  m_Height: 2
-  m_Direction: 1
-  m_Center: {x: 0.000000059604645, y: 0, z: -0.00000008940697}
 --- !u!54 &5674235829562034230
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -149,15 +126,48 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rb: {fileID: 5674235829562034230}
+  stats:
+    topCookAmount: 0
+    bottomCookAmount: 0.15
+    moisture: 1
+    qualityScore: 100
+    flipCount: 0
+    topSideUp: 1
+    toppings: []
+  clearToppingsOnReset: 1
   maxFlipDistance: 1.5
-  scoopHeightOffset: 0.3
+  scoopOffset: {x: 0, y: 0.125, z: 0}
   sloppyFlingMultiplier: 3
+  scoopMoveDuration: 0.12
+  scoopRotationOffsetEuler: {x: 0, y: 0, z: 0}
+  scoopCooldown: 0.75
+  keepScoopedWorldZ: 1
   scoopGracePeriod: 0.25
   baseUpForce: 3
   forceMultiplier: 2.5
   baseTorque: 100
   torqueMultiplier: 150
-  spawnPoint: {fileID: 0}
   resetKey: 114
   testLaunchKey: 116
   launchGracePeriod: 0.2
+--- !u!65 &6931377328333996378
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6495815784033702245}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1.0000001, y: 2, z: 1.0000002}
+  m_Center: {x: 0.000000059604645, y: 0, z: -0.00000008940697}
