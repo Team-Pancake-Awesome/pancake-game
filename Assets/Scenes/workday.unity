@@ -7210,6 +7210,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1711871460}
   - component: {fileID: 1711871459}
+  - component: {fileID: 1711871461}
   m_Layer: 0
   m_Name: debug
   m_TagString: Untagged
@@ -7244,6 +7245,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1711871461
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1711871458}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 14277fb7e6ed527468da6dac9449d783, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  logDevicesOnStart: 1
+  liveLogInterval: 1
+  deviceNameContains: 
 --- !u!1 &1779697318
 GameObject:
   m_ObjectHideFlags: 0
@@ -7548,6 +7564,7 @@ GameObject:
   - component: {fileID: 1908231343}
   - component: {fileID: 1908231346}
   - component: {fileID: 1908231347}
+  - component: {fileID: 1908231348}
   m_Layer: 6
   m_Name: Spatula
   m_TagString: Spatula
@@ -7568,9 +7585,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   currentInputMode: 0
-  primaryInputComponent: {fileID: 1908231347}
+  primaryInputComponent: {fileID: 1908231348}
   secondaryInputComponent: {fileID: 1908231346}
-  allowFallbackInput: 1
+  allowFallbackInput: 0
   rotationSmoothSpeed: 12
   minAngle: -20
   maxAngle: 60
@@ -7629,12 +7646,13 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1908231342}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2103193782ac07e469b2e27f04397b56, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  portName: 
+  portName: COM6
+  manuallyAssignPort: 1
   baudRate: 115200
   reconnectInterval: 1.5
   staleDataTimeout: 4
@@ -7667,6 +7685,60 @@ MonoBehaviour:
   debugRoll: 0
   isConnected: 0
   secondsSinceLastValidPacket: 0.5
+--- !u!114 &1908231348
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1908231342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 389436814111a3d4799a60c61d1fa9f7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  deviceNameContains: TinyUSB
+  enableKeyboardLockFallback: 0
+  logLiveValues: 1
+  logInterval: 0.1
+  invertRoll: 1
+  invertPitch: 1
+  hidPitchRange: 90
+  hidRollRange: 90
+  stickDeadzone: 0.12
+  pitchOffset: 0
+  rollOffset: 0
+  potControlName: 
+  useTriggerForPot: 0
+  potAxisMin: -0.85
+  potAxisMax: 0.85
+  invertPot: 0
+  fallbackPotValue: 0
+  actionButtonName: button2
+  useTriggerForAction: 0
+  lockKey: 32
+  minPitchInput: 30
+  maxPitchInput: -40
+  rollDeadzone: 2
+  enableFlipDetection: 0
+  pitchFlipVelocityThreshold: 90
+  pitchDeltaThreshold: 2.5
+  pitchVelocitySmoothing: 0.25
+  rollLimit: 45
+  cooldown: 0.35
+  debugGyroY: 0
+  debugPitch: 0
+  debugPitchDelta: 0
+  debugPitchVelocity: 0
+  debugRoll: 0
+  isConnected: 0
+  connectedDeviceName: 
+  debugStick: {x: 0, y: 0}
+  debugTrigger: 0
+  debugPotAxis: 0
+  debugAnyButtonPressed: 0
+  debugPressedButtonName: 
+  debugPotControlName: 
 --- !u!1 &2048515133
 GameObject:
   m_ObjectHideFlags: 0
