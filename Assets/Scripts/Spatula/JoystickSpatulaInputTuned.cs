@@ -177,6 +177,7 @@ public class JoystickSpatulaInputTuned : MonoBehaviour, ISpatulaInput, ISpatulaI
             {
                 lastFlipTime = Time.time;
                 float strength = Mathf.Clamp(filteredPitchVelocity / Mathf.Max(0.1f, pitchFlipVelocityThreshold), 1f, 2.5f);
+                Debug.Log($"FLIP DETECTED | Velocity: {filteredPitchVelocity:F1} | Delta: {latestPitchDelta:F1} | Strength: {strength:F2}");
                 state.FlipTriggered = true;
                 state.SnapRequested = true;
                 state.FlipStrength = strength;

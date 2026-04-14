@@ -7720,10 +7720,10 @@ MonoBehaviour:
   minPitchInput: 30
   maxPitchInput: -40
   rollDeadzone: 2
-  enableFlipDetection: 0
+  enableFlipDetection: 1
   pitchFlipVelocityThreshold: 90
-  pitchDeltaThreshold: 2.5
-  pitchVelocitySmoothing: 0.25
+  pitchDeltaThreshold: 1
+  pitchVelocitySmoothing: 0.1
   rollLimit: 45
   cooldown: 0.35
   debugGyroY: 0
