@@ -7708,7 +7708,7 @@ MonoBehaviour:
   stickDeadzone: 0.12
   pitchOffset: 0
   rollOffset: 0
-  potControlName: 
+  potControlName: rz
   useTriggerForPot: 0
   potAxisMin: -0.85
   potAxisMax: 0.85
