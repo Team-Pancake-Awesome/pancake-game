@@ -7,7 +7,6 @@ public class MusicManager : AudioManager<MusicManager>
     #region Inspector
 
     public MusicCueClipList musicCueClips;
-    private MusicCueClipList runtimeMusicCueClips;
     
     [Header("Dynamic Music")]
     [Min(0f)]
@@ -28,6 +27,7 @@ public class MusicManager : AudioManager<MusicManager>
 
     private readonly AudioSource[] sources = new AudioSource[Enum.GetValues(typeof(MusicCues)).Length];
     private readonly bool[] additiveActive = new bool[Enum.GetValues(typeof(MusicCues)).Length];
+    private MusicCueClipList runtimeMusicCueClips;
     private readonly Coroutine[] additiveFadeRoutines = new Coroutine[Enum.GetValues(typeof(MusicCues)).Length];
 
     private Coroutine transitionRoutine;
@@ -55,9 +55,6 @@ public class MusicManager : AudioManager<MusicManager>
 
         runtimeMusicCueClips = CreateRuntimeCueList(musicCueClips);
     }
-
-    public MusicCues CurrentCue => currentCue;
-    public bool HasCurrentCue => hasCurrentCue;
 
     void Update()
     {
@@ -101,6 +98,9 @@ public class MusicManager : AudioManager<MusicManager>
     #endregion
 
     #region Public API
+
+    public MusicCues CurrentCue => currentCue;
+    public bool HasCurrentCue => hasCurrentCue;
 
     public void SetIntensity(float intensity)
     {
