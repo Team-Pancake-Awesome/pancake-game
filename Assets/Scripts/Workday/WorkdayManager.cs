@@ -128,7 +128,7 @@ public class WorkdayManager : DoNotDestroySingletonManager<WorkdayManager>
         activeOrders.Clear();
         guestsById.Clear();
 
-        MusicManager.Instance.PlayMusicNow(MusicCues.Normal);
+        MusicManager.Instance.PlayMusicNow(MusicCues.Intro);
 
         currentSummary = new WorkdaySummary
         {
