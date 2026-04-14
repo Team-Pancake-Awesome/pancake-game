@@ -6,7 +6,6 @@ public class SoundManager : AudioManager<SoundManager>
     #region Inspector
 
     public SoundCueClipList soundCueClips;
-    private SoundCueClipList runtimeSoundCueClips;
 
     #endregion
 
@@ -15,6 +14,8 @@ public class SoundManager : AudioManager<SoundManager>
     private readonly AudioSource[] sources = new AudioSource[Enum.GetValues(typeof(SoundCues)).Length];
 
     private SoundCueClipList ActiveSoundCueClips => runtimeSoundCueClips != null ? runtimeSoundCueClips : soundCueClips;
+    
+    private SoundCueClipList runtimeSoundCueClips;
 
     #endregion
 
