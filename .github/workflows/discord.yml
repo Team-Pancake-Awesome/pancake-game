@@ -1,10 +1,11 @@
 name: Auto Assign & Discord Notify
+
 on:
   pull_request:
     types: [opened]
 
 jobs:
-  assign-and-notify:
+  notify:
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -15,30 +16,23 @@ jobs:
         uses: pozil/auto-assign-issue@v1
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          assignees: 5EUS,AaronCII,agruzberg,bmike3,DragonKnight914
+          assignees: 5EUS,AaronCII,bmike3,sabrina714,wfrasher,feltcutemightdelete
           numOfAssignee: 2
 
-      - name: Fetch PR metadata and map Discord tags
+      - name: Fetch PR metadata (assignees/reviewers)
         id: prmeta
         uses: actions/github-script@v7
         with:
           github-token: ${{ github.token }}
           script: |
-            // Load GitHub -> Discord mapping
             const githubToDiscord = JSON.parse(process.env.ASSIGNEE_MAP || '{}');
-            
             const { owner, repo } = context.repo;
             const pull_number = context.payload.pull_request.number;
+
             const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
 
-            // Map GitHub assignees & reviewers to Discord mentions
-            const discordAssignees = (pr.assignees ?? [])
-              .map(a => githubToDiscord[a.login] || a.login)
-              .join(', ') || 'None';
-            
-            const discordReviewers = (pr.requested_reviewers ?? [])
-              .map(r => githubToDiscord[r.login] || r.login)
-              .join(', ') || 'None';
+            const discordAssignees = (pr.assignees ?? []).map(a => githubToDiscord[a.login] || a.login).join(', ') || 'None';
+            const discordReviewers = (pr.requested_reviewers ?? []).map(r => githubToDiscord[r.login] || r.login).join(', ') || 'None';
 
             const teams = (pr.requested_teams ?? []).map(t => t.name).join(', ') || 'None';
 
@@ -58,8 +52,9 @@ jobs:
             }];
 
             core.setOutput('discord_embeds', JSON.stringify(embed));
+
         env:
-          ASSIGNEE_MAP: ${{ vars.ASSIGNEE_MAP }}
+          ASSIGNEE_MAP: ${{ vars.ASSIGNEE_MAP }}  
 
       - name: Notify Discord
         uses: Ilshidur/action-discord@0.4.0
@@ -69,4 +64,4 @@ jobs:
           DISCORD_AVATAR: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
           DISCORD_EMBEDS: ${{ steps.prmeta.outputs.discord_embeds }}
         with:
-          args: "New PR opened!"
+          args: "@everyone New PR opened!"
