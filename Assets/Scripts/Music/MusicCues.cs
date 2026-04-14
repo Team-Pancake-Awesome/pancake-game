@@ -4,6 +4,10 @@
 public enum MusicCues : int
 {
     PancakeBurning,
+    AddStrawberries,
+    AddChocolate,
+    AddBlueberries,
+    Intro,
 
     Normal
 }
