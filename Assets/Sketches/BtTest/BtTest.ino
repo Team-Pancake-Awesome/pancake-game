@@ -2,14 +2,17 @@
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 
+// Change to 'true' for Bluetooth, 'false' for USB
+#define USE_BLUETOOTH true 
 
-
-
-#include "USB.h"
-#include "USBHIDGamepad.h"
-
-USBHIDGamepad Gamepad;
-
+#if USE_BLUETOOTH
+  #include <BleGamepad.h>
+  BleGamepad Gamepad("Spatula");
+#else
+  #include "USB.h"
+  #include "USBHIDGamepad.h"
+  USBHIDGamepad Gamepad;
+#endif
 
 Adafruit_MPU6050 mpu;
 
@@ -53,10 +56,27 @@ void setup() {
   Serial.begin(115200);
   Wire.begin(); 
   #if USE_BLUETOOTH
-    Gamepad.begin();
+    // 1. Create a custom configuration
+    BleGamepadConfiguration bleConfig;
+    
+    // 2. Put the controller on a diet
+    bleConfig.setButtonCount(1);      // We only have 1 button
+    bleConfig.setHatSwitchCount(0);   // No D-Pads
+    
+    // 3. Turn off unused axes
+    bleConfig.setIncludeRxAxis(false);
+    bleConfig.setIncludeRyAxis(false);
+    bleConfig.setIncludeSlider1(false);
+    bleConfig.setIncludeSlider2(false);
+    // (Note: We leave X, Y, Z, and Rz as 'true' because Left/Right stick use those!)
+
+    // 4. Start the gamepad with our new diet configuration
+    Gamepad.begin(&bleConfig);
+    Serial.println("Starting in BLUETOOTH Mode...");
   #else
     Gamepad.begin();
     USB.begin();
+    Serial.println("Starting in USB Mode...");
   #endif
 
   pinMode(potPin, INPUT);
@@ -132,20 +152,44 @@ void loop() {
   int8_t mappedPot = convertPotToRightStickRange(potRaw);
 
   // Send HID Commands
-  Gamepad.leftStick((int8_t)mappedRoll, (int8_t)mappedPitch);
-  Gamepad.rightStick(hidRightCenter, mappedPot);
+  #if USE_BLUETOOTH
+    // Spatula is 0 to 255. Map it to 0 to 32767.
+    int16_t bleRoll = map(mappedRoll, 0, 255, 0, 32767);
+    int16_t blePitch = map(mappedPitch, 0, 255, 0, 32767);
+    
+    // Pot is -127 to 127. Map it to 0 to 32767.
+    int16_t blePot = map(mappedPot, -127, 127, 0, 32767);
 
-  if (actionButtonPressed == 1) {
-    Gamepad.pressButton(1);
-  } else {
-    Gamepad.releaseButton(1);
-  }
+    Gamepad.setLeftThumb(bleRoll, blePitch);
+    Gamepad.setRightThumb(16384, blePot);
+
+    if (actionButtonPressed == 1) {
+      Gamepad.press(BUTTON_1);
+    } else {
+      Gamepad.release(BUTTON_1);
+    }
+  #else
+    Gamepad.leftStick((int8_t)mappedRoll, (int8_t)mappedPitch);
+    Gamepad.rightStick(hidRightCenter, mappedPot);
+
+    if (actionButtonPressed == 1) {
+      Gamepad.pressButton(1);
+    } else {
+      Gamepad.releaseButton(1);
+    }
+  #endif
 }
 
 void sendNeutralState() {
-  Gamepad.leftStick((int8_t)hidLeftCenter, (int8_t)hidLeftCenter);
-  Gamepad.rightStick(hidRightCenter, hidRightMin); // Pulls pot down to 0% flame when disarmed
-  Gamepad.releaseButton(1); 
+  #if USE_BLUETOOTH
+    Gamepad.setLeftThumb(16384, 16384);
+    Gamepad.setRightThumb(16384, 0); // 0 is minimum pot value for BLE
+    Gamepad.release(BUTTON_1);
+  #else
+    Gamepad.leftStick((int8_t)hidLeftCenter, (int8_t)hidLeftCenter);
+    Gamepad.rightStick(hidRightCenter, hidRightMin); // Pulls pot down to 0% flame when disarmed
+    Gamepad.releaseButton(1); 
+  #endif
 }
 
 float calculatePitch(float ax, float ay, float az) {
