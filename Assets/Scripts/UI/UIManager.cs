@@ -23,39 +23,61 @@ public class UIManager : MonoBehaviour
        Time.timeScale = 1f;
        GameIsPaused = false;
        UIOpen = false;
- 
     }
 
     // Update is called once per frame
     void Update()
     {
-        //need to handle key input
-        if(GameIsPaused == true)
+        if(Input.GetKeyDown(KeyCode.Escape))
         {
-            Time.timeScale = 0f;
+            if(GameIsPaused == true && endOfDayUI.activeInHierarchy == false)
+            {
+                Resume();
+            } else if(endOfDayUI.activeInHierarchy == true)
+            {
+                
+            } else
+            {
+                Pause();   
+            }
+        }
+        if (Input.GetKeyDown(KeyCode.G))
+        {
+            if(debugMenu == true)
+            {
+                CloseDebug();
+            } else
+            {
+                OpenDebug();
+            }
+        } 
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            Restart();
         }
     }
 
     public void Resume()
     {
-            GameIsPaused = false;
-            pauseMenu.SetActive(false);
-            UIOpen = false;
+        GameIsPaused = false;
+        pauseMenu.SetActive(false);
+        UIOpen = false;
         
     }
 
     public void Restart()
     {
         //Restart game scene
-        if (Input.GetKeyDown(KeyCode.R))
-        {
-            SceneManager.LoadScene(gameSceneName);
-        }
+        SceneManager.LoadScene(gameSceneName);
+        Time.timeScale = 1f;
+        GameIsPaused = false;
+        UIOpen = false;
     }
 
     public void Exit()
     {
         Application.Quit();
+        Debug.Log("Application has quit");
     }
 
     public void LoadGameScene()
@@ -63,6 +85,7 @@ public class UIManager : MonoBehaviour
         //Used to load between MainMenu, the Main game scene, and Tutorial scene (if we make one).
         Time.timeScale = 1f;
         GameIsPaused = false;
+        UIOpen = false;
         SceneManager.LoadScene(gameSceneName);
     }
 
@@ -70,31 +93,25 @@ public class UIManager : MonoBehaviour
     {
         Time.timeScale = 1f;
         GameIsPaused = false;
+        UIOpen = false;
         SceneManager.LoadScene(mainMenu);
     }
 
     public void Pause()
     {
-        if(Input.GetKeyDown(KeyCode.P) && UIOpen == false)
-        {
-            GameIsPaused = true;
-            pauseMenu.SetActive(true);
-            UIOpen = true;
-        }
+        GameIsPaused = true;
+        pauseMenu.SetActive(true);
+        UIOpen = true;
+        Time.timeScale = 0f;        
     }
 
     public void OpenDebug()
     {
-        if (Input.GetKeyDown(KeyCode.G))
-        {
-            debugMenu.SetActive(true);
-        }
-        while (debugMenu == true)
-        {
-            if (Input.GetKeyDown(KeyCode.P))
-            {
-                Pause();
-            }
-        }
+        debugMenu.SetActive(true);
+    }
+
+    void CloseDebug()
+    {
+        debugMenu.SetActive(false);
     }
 }

@@ -1034,7 +1034,7 @@ MonoBehaviour:
   debugMenu: {fileID: 0}
   pauseMenu: {fileID: 0}
   mainMenu: MainMenu
-  gameSceneName: SampleScene
+  gameSceneName: UIScene
 --- !u!4 &1159564126
 Transform:
   m_ObjectHideFlags: 0
