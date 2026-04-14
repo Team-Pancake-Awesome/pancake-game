@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class WorkdayManager : MonoBehaviour
 {
+    #region Inspector
+
     [Header("References")]
     public WorkdayDifficultyConfig difficultyConfig;
     public PancakeController pancakePrefab;
@@ -19,6 +21,10 @@ public class WorkdayManager : MonoBehaviour
 
     [Header("Debug")]
     public bool logEvents = true;
+
+    #endregion
+
+    #region Public Properties
 
     public bool IsRunning => currentStage == WorkdayStage.Work || currentStage == WorkdayStage.LastCall;
     public bool IsLastCall => currentStage == WorkdayStage.LastCall;
@@ -36,10 +42,18 @@ public class WorkdayManager : MonoBehaviour
     public float CurrentWorkdayDurationSeconds => Mathf.Max(30f, currentDayConfig != null ? currentDayConfig.workdayDurationSeconds : 240f);
     public WorkdayDifficultyConfig CurrentDayConfig => currentDayConfig;
 
+    #endregion
+
+    #region Events
+
     public event Action<GuestOrder> OnOrderCreated;
     public event Action<GuestOrder, GuestRatingResult> OnOrderServed;
     public event Action<GuestOrder, GuestRatingResult> OnOrderExpired;
     public event Action<WorkdaySummary> OnDayEnded;
+
+    #endregion
+
+    #region Runtime State
 
     private readonly List<GuestOrder> activeOrders = new();
     private readonly Dictionary<int, GuestProfile> guestsById = new();
@@ -67,6 +81,10 @@ public class WorkdayManager : MonoBehaviour
     private int nextOrderId = 1;
     private int selectedOrderIndex;
     private bool loggedMissingPancakePrefab;
+
+    #endregion
+
+    #region Unity Lifecycle
 
     private void Start()
     {
@@ -96,6 +114,10 @@ public class WorkdayManager : MonoBehaviour
                 return;
         }
     }
+
+    #endregion
+
+    #region Public API
 
     public void BeginWorkday(int? overrideSeed = null)
     {
@@ -157,6 +179,10 @@ public class WorkdayManager : MonoBehaviour
     {
         MoveSelection(1);
     }
+
+    #endregion
+
+    #region Stage Flow
 
     private void TickBeginStage(float now)
     {
@@ -340,6 +366,10 @@ public class WorkdayManager : MonoBehaviour
         return config != null;
     }
 
+    #endregion
+
+    #region Order Processing
+
     private bool ServeOrderAtIndex(int index)
     {
         if (!IsRunning || activeOrders.Count == 0)
@@ -463,6 +493,10 @@ public class WorkdayManager : MonoBehaviour
         }
     }
 
+    #endregion
+
+    #region Selection Helpers
+
     private void MoveSelection(int delta)
     {
         if (activeOrders.Count == 0)
@@ -494,6 +528,10 @@ public class WorkdayManager : MonoBehaviour
 
         selectedOrderIndex = Mathf.Clamp(selectedOrderIndex, 0, activeOrders.Count - 1);
     }
+
+    #endregion
+
+    #region Rating & Pancake Helpers
 
     private void RecordRating(GuestRatingResult rating)
     {
@@ -531,17 +569,17 @@ public class WorkdayManager : MonoBehaviour
 
             if (spawnTemplate != null)
             {
-            Transform spawnTransform = pancakeSpawnPoint ?? sourceTransform;
-            Transform spawnParent = pancakeSpawnParent ?? sourceTransform.parent;
+                Transform spawnTransform = pancakeSpawnPoint != null ? pancakeSpawnPoint : sourceTransform;
+                Transform spawnParent = pancakeSpawnParent != null ? pancakeSpawnParent : sourceTransform.parent;
 
-            // TODO: Replace this instantiate path with object pooling.
-            Instantiate(
-                spawnTemplate,
-                spawnTransform.position,
-                spawnTransform.rotation,
-                spawnParent);
+                // TODO: Replace this instantiate path with object pooling.
+                Instantiate(
+                    spawnTemplate,
+                    spawnTransform.position,
+                    spawnTransform.rotation,
+                    spawnParent);
 
-            SoundManager.Instance.PlayFromCue(SoundCues.PourBatter, spawnTransform.position);
+                SoundManager.Instance.PlayFromCue(SoundCues.PourBatter, spawnTransform.position);
             }
             else if (logEvents && !loggedMissingPancakePrefab)
             {
@@ -590,4 +628,6 @@ public class WorkdayManager : MonoBehaviour
 
         return string.Join(", ", order.requiredToppings);
     }
+
+    #endregion
 }
