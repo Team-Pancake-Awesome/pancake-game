@@ -42,7 +42,8 @@ public class DebugWorkdayUI : MonoBehaviour
 
     private void Update()
     {
-        CleanupRecentRatings(Time.time);
+        float now = Time.time;
+        CleanupRecentRatings(now);
     }
 
     private void OnGUI()

@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class FlamePot : MonoBehaviour
 {
+    private const float BurntCookThreshold = 0.92f;
+
     public SpatulaController spatulaController;
     public ParticleSystem flame;
 
@@ -40,6 +42,7 @@ public class FlamePot : MonoBehaviour
     private static readonly int ColorId = Shader.PropertyToID("_Color");
     private readonly Collider[] heatHits = new Collider[32];
     private MaterialPropertyBlock materialPropertyBlock;
+    private bool wasBurningMusicActive;
 
     void Start()
     {
@@ -54,10 +57,12 @@ public class FlamePot : MonoBehaviour
 
     void Update()
     {
-        if (spatulaController == null || flame == null)
-            return;
+        float t = spatulaController != null ? Mathf.Clamp01(spatulaController.PotValue) : 0f;
 
-        float t = Mathf.Clamp01(spatulaController.PotValue);
+        UpdateBurningMusicState();
+
+        if (flame == null)
+            return;
 
         var main = flame.main;
         var emission = flame.emission;
@@ -153,5 +158,65 @@ public class FlamePot : MonoBehaviour
     {
         Gizmos.color = new Color(1f, 0.5f, 0.1f, 0.75f);
         Gizmos.DrawWireSphere(GetHeatCenter(), Mathf.Max(0.01f, heatRadius));
+    }
+
+    void UpdateBurningMusicState()
+    {
+        bool isAnyPancakeBurning = IsAnyPancakeBurningInHeatZone();
+
+        if (isAnyPancakeBurning == wasBurningMusicActive)
+        {
+            return;
+        }
+
+        wasBurningMusicActive = isAnyPancakeBurning;
+
+        if (isAnyPancakeBurning)
+        {
+            MusicManager.Instance.PlayMusic(MusicCues.PancakeBurning);
+            return;
+        }
+
+        // MusicManager.Instance.PlayMusic(MusicCues.Normal);
+    }
+    
+
+    bool IsAnyPancakeBurningInHeatZone()
+    {
+        Vector3 heatCenter = GetHeatCenter();
+        int hitCount = Physics.OverlapSphereNonAlloc(heatCenter, heatRadius, heatHits);
+        if (hitCount <= 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider hit = heatHits[i];
+            heatHits[i] = null;
+            if (hit == null)
+            {
+                continue;
+            }
+
+            PancakeController pancake = hit.GetComponentInParent<PancakeController>();
+            if (IsPancakeBurning(pancake))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsPancakeBurning(PancakeController pancake)
+    {
+        if (pancake == null || pancake.stats == null)
+        {
+            return false;
+        }
+
+        return pancake.stats.topCookAmount >= BurntCookThreshold ||
+               pancake.stats.bottomCookAmount >= BurntCookThreshold;
     }
 }
