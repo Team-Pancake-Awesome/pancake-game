@@ -4,8 +4,8 @@ using UnityEngine;
 
 public class MusicManager : MonoBehaviour
 {
-    public MusicCueClips musicCueClips;
-
+    public MusicCueClipList musicCueClips;
+    
     [Header("Dynamic Music")]
     [Min(0f)]
     public float defaultTransitionSeconds = 0.75f;
@@ -92,14 +92,90 @@ public class MusicManager : MonoBehaviour
 
     public void PlayMusic(MusicCues cue)
     {
-        TransitionTo(cue, defaultTransitionSeconds);
-        lastTransition = (Time.time, cue); // includes failed transitions
+        PlayMusic(cue, CuePlaybackPolicy<MusicCues>.TrackCue);
+    }
+
+    public bool PlayMusic(MusicCues cue, CuePlaybackPolicy<MusicCues> playbackPolicy)
+    {
+        return PlayMusicInternal(cue, defaultTransitionSeconds, playbackPolicy);
     }
 
     public void PlayMusicNow(MusicCues cue)
     {
-        TransitionTo(cue, 0f);
+        PlayMusicNow(cue, CuePlaybackPolicy<MusicCues>.TrackCue);
+    }
+
+    public bool PlayMusicNow(MusicCues cue, CuePlaybackPolicy<MusicCues> playbackPolicy)
+    {
+        return PlayMusicInternal(cue, 0f, playbackPolicy);
+    }
+
+    public bool IsCuePlaying(MusicCues cue)
+    {
+        int index = (int)cue;
+        if (index < 0 || index >= sources.Length)
+        {
+            return false;
+        }
+
+        AudioSource source = sources[index];
+        return source != null && source.isPlaying;
+    }
+
+    private bool PlayMusicInternal(MusicCues cue, float transitionSeconds, CuePlaybackPolicy<MusicCues> playbackPolicy)
+    {
+        if (!CanPlayCue(cue))
+        {
+            return false;
+        }
+
+        switch (playbackPolicy.Mode)
+        {
+            case CuePlaybackMode.YieldToPlayingCue:
+            {
+                if (IsCuePlaying(cue))
+                {
+                    return false;
+                }
+
+                break;
+            }
+            case CuePlaybackMode.IgnorePlayingCues:
+            {
+                int index = (int)cue;
+                AudioSource source = GetOrCreateSource(index);
+                if (source != null && source.isPlaying)
+                {
+                    source.Stop();
+                }
+
+                break;
+            }
+            case CuePlaybackMode.TrackCue:
+            default:
+                break;
+        }
+
+        TransitionTo(cue, transitionSeconds);
         lastTransition = (Time.time, cue); // includes failed transitions
+        return true;
+    }
+
+    private bool CanPlayCue(MusicCues cue)
+    {
+        if (musicCueClips == null)
+        {
+            Debug.LogError("MusicManager is missing MusicCueClips reference.");
+            return false;
+        }
+
+        if (!musicCueClips.TryGetClip(cue, out MusicCueClip cueClip) || cueClip == null || cueClip.clip == null)
+        {
+            Debug.LogError($"Music cue {cue} is missing a valid audio clip.");
+            return false;
+        }
+
+        return true;
     }
 
     public void StopMusic(float fadeOutSeconds = 0f)

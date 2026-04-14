@@ -55,13 +55,19 @@ public class PancakeController : MonoBehaviour
     private bool hasScoopedLocalOffset = false;
     private float scoopedWorldZ;
     private Coroutine scoopMoveRoutine;
-    private bool ruinedSoundPlayed;
+    private PancakeSpawner spawner;
 
     void OnEnable()
     {
         if (!Application.isPlaying)
         {
             return;
+        }
+
+        spawner = FindObjectOfType<PancakeSpawner>();
+        if (spawner == null)
+        {
+            Debug.LogError("PancakeSpawner not found!");
         }
 
         PancakeRegistry.Instance.Register(this);
@@ -182,7 +188,7 @@ public class PancakeController : MonoBehaviour
         rb.AddTorque(Vector3.right * appliedTorque, ForceMode.Impulse);
 
         stats?.RegisterFlip();
-        SoundManager.Instance.PlaySound(SoundCues.FlipPancake, transform.position);
+        SoundManager.Instance.PlayFromCue(SoundCues.FlipPancake, transform.position);
         
         Debug.Log($"SUCCESSFUL LAUNCH! UpForce: {upForce:F2} | SloppyForce: {sloppyForce.magnitude:F2}");
         return true;
@@ -197,10 +203,12 @@ public class PancakeController : MonoBehaviour
 
         stats.ApplyHeat(heatIntensity, Time.deltaTime);
 
-        if (!ruinedSoundPlayed && IsPancakeRuined())
+        if (IsPancakeRuined())
         {
-            ruinedSoundPlayed = true;
-            SoundManager.Instance.PlaySound(SoundCues.RuinedPancake, transform.position);
+            SoundManager.Instance.PlayFromCue(
+                SoundCues.RuinedPancake,
+                transform.position,
+                CuePlaybackPolicy<SoundCues>.YieldToPlayingCue);
         }
     }
 
@@ -232,7 +240,6 @@ public class PancakeController : MonoBehaviour
         lastScoopTime = -999f;
         if (rb != null) rb.isKinematic = false;
         stats?.ResetForNewRound(!clearToppingsOnReset);
-        ruinedSoundPlayed = false;
 
         if (clearToppingsOnReset)
         {
@@ -255,6 +262,10 @@ public class PancakeController : MonoBehaviour
         if (spawnPoint != null)
         {
             transform.SetPositionAndRotation(spawnPoint.position, spawnPoint.rotation);
+        }
+        else if (spawner != null)
+        {
+            spawner.RespawnPancake(this);
         }
 
         if (rb != null)
@@ -344,7 +355,7 @@ public class PancakeController : MonoBehaviour
         if (airborne && Time.time - lastLaunchTime > launchGracePeriod)
         {
             airborne = false;
-            SoundManager.Instance.PlaySound(SoundCues.PancakeLand, transform.position);
+            SoundManager.Instance.PlayFromCue(SoundCues.PancakeLand, transform.position);
             Debug.Log("Pancake Landed! Ready to scoop.");
         }
     }

@@ -4,7 +4,7 @@ using UnityEngine;
 public class SoundManager : MonoBehaviour
 {
 
-    public SoundCueClips soundCueClips;
+    public SoundCueClipList soundCueClips;
 
     private readonly AudioSource[] sources = new AudioSource[Enum.GetValues(typeof(SoundCues)).Length];
 
@@ -36,26 +36,108 @@ public class SoundManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
-    public void PlaySound(SoundCues cue)
+    public bool PlayFromCue(SoundCues cue, CuePlaybackPolicy<SoundCues> playbackPolicy = default)
     {
-        PlaySound(cue, transform.position);
+        return PlayFromCue(cue, transform.position, playbackPolicy);
     }
 
-    public void PlaySound(SoundCues cue, Vector3 position)
+    public bool PlayFromCue(SoundCues cue, Vector3 position, CuePlaybackPolicy<SoundCues> playbackPolicy = default)
     {
         if (!soundCueClips.TryGetClip(cue, out SoundCueClip soundCueClip))
         {
-            return;
+            return false;
         }
 
-        int index = (int)cue;
-        AudioSource source = GetOrCreateSource(index, cue);
-        if (source == null)
+        switch (playbackPolicy.Mode)
         {
-            return;
+            case CuePlaybackMode.YieldToPlayingCue:
+            {
+                if (IsCuePlaying(cue))
+                {
+                    return false;
+                }
+
+                int index = (int)cue;
+                AudioSource trackedSource = GetOrCreateSource(index, cue);
+                if (trackedSource == null)
+                {
+                    return false;
+                }
+
+                soundCueClip.Play(trackedSource, position);
+                return true;
+            }
+            case CuePlaybackMode.IgnorePlayingCues:
+            {
+                return PlayTransient(soundCueClip, cue, position);
+            }
+            case CuePlaybackMode.TrackCue:
+            default:
+            {
+                int index = (int)cue;
+                AudioSource trackedSource = GetOrCreateSource(index, cue);
+                if (trackedSource == null)
+                {
+                    return false;
+                }
+
+                soundCueClip.Play(trackedSource, position);
+                return true;
+            }
+        }
+    }
+
+    public bool IsCuePlaying(SoundCues cue)
+    {
+        int index = (int)cue;
+        if (index < 0 || index >= sources.Length)
+        {
+            return false;
         }
 
-        soundCueClip.Play(source, position);
+        AudioSource source = sources[index];
+        return source != null && source.isPlaying;
+    }
+
+    private bool PlayTransient(SoundCueClip soundCueClip, SoundCues cue, Vector3 position)
+    {
+        if (soundCueClip == null || soundCueClip.clip == null)
+        {
+            return false;
+        }
+
+        if (soundCueClip.loop)
+        {
+            Debug.LogWarning($"Transient playback requested for looping cue {cue}. Falling back to tracked playback.");
+            int index = (int)cue;
+            AudioSource trackedSource = GetOrCreateSource(index, cue);
+            if (trackedSource == null)
+            {
+                return false;
+            }
+
+            soundCueClip.Play(trackedSource, position);
+            return true;
+        }
+
+        GameObject transientObject = new($"SoundSourceTransient_{cue}");
+        transientObject.transform.SetParent(transform, false);
+
+        AudioSource transientSource = transientObject.AddComponent<AudioSource>();
+        transientSource.transform.position = position;
+        transientSource.volume = soundCueClip.volume;
+        transientSource.pitch = soundCueClip.pitch;
+        transientSource.loop = false;
+        transientSource.spatialBlend = soundCueClip.spatialBlend;
+        transientSource.maxDistance = soundCueClip.maxDistance;
+        transientSource.rolloffMode = soundCueClip.rolloffMode;
+        transientSource.minDistance = soundCueClip.minDistance;
+        transientSource.spatialize = soundCueClip.spatialize;
+
+        transientSource.PlayOneShot(soundCueClip.clip);
+        float lifetime = Mathf.Max(0.1f, soundCueClip.clip.length / Mathf.Max(0.01f, Mathf.Abs(soundCueClip.pitch)) + 0.1f);
+        Destroy(transientObject, lifetime);
+        return true;
     }
 
     private AudioSource GetOrCreateSource(int index, SoundCues cue)
