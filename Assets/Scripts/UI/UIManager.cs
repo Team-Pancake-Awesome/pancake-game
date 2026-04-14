@@ -12,6 +12,7 @@ public class UIManager : MonoBehaviour
     [Header("UI References")]
     public GameObject endOfDayUI;
     public GameObject debugMenu;
+    public GameObject pauseMenu;
     
     [SerializeField]
     public string mainMenu;
@@ -28,10 +29,22 @@ public class UIManager : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        //need to handle key input
+        if(GameIsPaused == true)
+        {
+            Time.timeScale = 0f;
+        }
+    }
+
+    public void Resume()
+    {
+            GameIsPaused = false;
+            pauseMenu.SetActive(false);
+            UIOpen = false;
         
     }
 
-    void Restart()
+    public void Restart()
     {
         //Restart game scene
         if (Input.GetKeyDown(KeyCode.R))
@@ -40,27 +53,37 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    void Exit()
+    public void Exit()
     {
-        //Exit the game
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            Application.Quit();
-        }
+        Application.Quit();
     }
 
-    void LoadGameScene()
+    public void LoadGameScene()
     {
         //Used to load between MainMenu, the Main game scene, and Tutorial scene (if we make one).
+        Time.timeScale = 1f;
+        GameIsPaused = false;
         SceneManager.LoadScene(gameSceneName);
     }
 
-    void LoadMainMenuScene()
+    public void LoadMainMenuScene()
     {
+        Time.timeScale = 1f;
+        GameIsPaused = false;
         SceneManager.LoadScene(mainMenu);
     }
 
-    void OpenDebug()
+    public void Pause()
+    {
+        if(Input.GetKeyDown(KeyCode.P) && UIOpen == false)
+        {
+            GameIsPaused = true;
+            pauseMenu.SetActive(true);
+            UIOpen = true;
+        }
+    }
+
+    public void OpenDebug()
     {
         if (Input.GetKeyDown(KeyCode.G))
         {
@@ -70,11 +93,8 @@ public class UIManager : MonoBehaviour
         {
             if (Input.GetKeyDown(KeyCode.P))
             {
-                GameIsPaused = true;
-                Time.timeScale = 0f;
+                Pause();
             }
         }
-        Time.timeScale = 1f;
-        GameIsPaused = false;
     }
 }
