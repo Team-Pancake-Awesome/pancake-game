@@ -2,8 +2,10 @@ using System;
 using System.Collections;
 using UnityEngine;
 
-public class MusicManager : MonoBehaviour
+public class MusicManager : AudioManager<MusicManager>
 {
+    #region Inspector
+
     public MusicCueClipList musicCueClips;
     private MusicCueClipList runtimeMusicCueClips;
     
@@ -20,11 +22,13 @@ public class MusicManager : MonoBehaviour
     public float TimeTransitionBackToNormalSeconds = 15f;
     public bool TransitionBackToNormalAfterSeconds = true; // only if no transitions are requested
 
+    #endregion
+
+    #region Runtime State
+
     private readonly AudioSource[] sources = new AudioSource[Enum.GetValues(typeof(MusicCues)).Length];
     private readonly bool[] additiveActive = new bool[Enum.GetValues(typeof(MusicCues)).Length];
     private readonly Coroutine[] additiveFadeRoutines = new Coroutine[Enum.GetValues(typeof(MusicCues)).Length];
-
-    private static MusicManager _instance;
 
     private Coroutine transitionRoutine;
     private Coroutine pendingLoadRoutine;
@@ -36,41 +40,20 @@ public class MusicManager : MonoBehaviour
 
     private MusicCueClipList ActiveMusicCueClips => runtimeMusicCueClips != null ? runtimeMusicCueClips : musicCueClips;
 
-    public static MusicManager Instance
-    {
-        get
-        {
-            if (_instance == null)
-            {
-                _instance = FindFirstObjectByType<MusicManager>();
-                if (_instance == null)
-                {
-                    GameObject managerObject = new("MusicManager");
-                    _instance = managerObject.AddComponent<MusicManager>();
-                }
-            }
-            return _instance;
-        }
-    }
+    #endregion
 
-    private MusicManager() { }
+    #region Unity Lifecycle
 
-    void Awake()
+    protected override void Awake()
     {
-        if (_instance != null && _instance != this)
+        base.Awake();
+
+        if (Instance != this)
         {
-            Destroy(gameObject);
             return;
         }
-        _instance = this;
 
-        if (Application.isPlaying && musicCueClips != null)
-        {
-            runtimeMusicCueClips = Instantiate(musicCueClips);
-            runtimeMusicCueClips.name = $"{musicCueClips.name} (Runtime)";
-        }
-
-        DontDestroyOnLoad(gameObject);
+        runtimeMusicCueClips = CreateRuntimeCueList(musicCueClips);
     }
 
     public MusicCues CurrentCue => currentCue;
@@ -93,6 +76,31 @@ public class MusicManager : MonoBehaviour
             }
         }
     }
+
+    private void OnDestroy()
+    {
+        if (pendingLoadRoutine != null)
+        {
+            StopCoroutine(pendingLoadRoutine);
+            pendingLoadRoutine = null;
+        }
+
+        for (int i = 0; i < additiveFadeRoutines.Length; i++)
+        {
+            if (additiveFadeRoutines[i] == null)
+            {
+                continue;
+            }
+
+            StopCoroutine(additiveFadeRoutines[i]);
+            additiveFadeRoutines[i] = null;
+        }
+
+    }
+
+    #endregion
+
+    #region Public API
 
     public void SetIntensity(float intensity)
     {
@@ -130,63 +138,6 @@ public class MusicManager : MonoBehaviour
 
         AudioSource source = sources[index];
         return source != null && source.isPlaying;
-    }
-
-    private bool PlayMusicInternal(MusicCues cue, float transitionSeconds, CuePlaybackPolicy<MusicCues> playbackPolicy)
-    {
-        if (!CanPlayCue(cue))
-        {
-            return false;
-        }
-
-        switch (playbackPolicy.Mode)
-        {
-            case CuePlaybackMode.YieldToPlayingCue:
-            {
-                if (IsCuePlaying(cue))
-                {
-                    return false;
-                }
-
-                break;
-            }
-            case CuePlaybackMode.IgnorePlayingCues:
-            {
-                int index = (int)cue;
-                AudioSource source = GetOrCreateSource(index);
-                if (source != null && source.isPlaying)
-                {
-                    source.Stop();
-                }
-
-                break;
-            }
-            case CuePlaybackMode.TrackCue:
-            default:
-                break;
-        }
-
-        TransitionTo(cue, transitionSeconds);
-        lastTransition = (Time.time, cue); // includes failed transitions
-        return true;
-    }
-
-    private bool CanPlayCue(MusicCues cue)
-    {
-        MusicCueClipList cueClips = ActiveMusicCueClips;
-        if (cueClips == null)
-        {
-            Debug.LogError("MusicManager is missing MusicCueClips reference.");
-            return false;
-        }
-
-        if (!cueClips.TryGetClip(cue, out MusicCueClip cueClip) || cueClip == null || cueClip.clip == null)
-        {
-            Debug.LogError($"Music cue {cue} is missing a valid audio clip.");
-            return false;
-        }
-
-        return true;
     }
 
     public void StopMusic(float fadeOutSeconds = 0f)
@@ -304,23 +255,79 @@ public class MusicManager : MonoBehaviour
         transitionRoutine = StartCoroutine(CrossfadeRoutine(currentCue, cue, transitionSeconds, transitionTransportSeconds));
     }
 
+    #endregion
+
+    #region Playback Decisions
+
+    private bool PlayMusicInternal(MusicCues cue, float transitionSeconds, CuePlaybackPolicy<MusicCues> playbackPolicy)
+    {
+        if (!CanPlayCue(cue))
+        {
+            return false;
+        }
+
+        switch (playbackPolicy.Mode)
+        {
+            case CuePlaybackMode.YieldToPlayingCue:
+            {
+                if (IsCuePlaying(cue))
+                {
+                    return false;
+                }
+
+                break;
+            }
+            case CuePlaybackMode.IgnorePlayingCues:
+            {
+                int index = (int)cue;
+                AudioSource source = GetOrCreateSource(index);
+                if (source != null && source.isPlaying)
+                {
+                    source.Stop();
+                }
+
+                break;
+            }
+            case CuePlaybackMode.TrackCue:
+            default:
+                break;
+        }
+
+        TransitionTo(cue, transitionSeconds);
+        lastTransition = (Time.time, cue); // includes failed transitions
+        return true;
+    }
+
+    private bool CanPlayCue(MusicCues cue)
+    {
+        MusicCueClipList cueClips = ActiveMusicCueClips;
+        if (cueClips == null)
+        {
+            Debug.LogError("MusicManager is missing MusicCueClips reference.");
+            return false;
+        }
+
+        if (!cueClips.TryGetClip(cue, out MusicCueClip cueClip) || cueClip == null || cueClip.clip == null)
+        {
+            Debug.LogError($"Music cue {cue} is missing a valid audio clip.");
+            return false;
+        }
+
+        return true;
+    }
+
+    #endregion
+
+    #region Source Helpers
+
     private AudioSource GetOrCreateSource(int index)
     {
-        if (index < 0 || index >= sources.Length)
-        {
-            return null;
-        }
-
-        if (sources[index] == null)
-        {
-            MusicCues cue = (MusicCues)index;
-            GameObject sourceObject = new($"MusicSource_{cue}");
-            sourceObject.transform.SetParent(transform, false);
-            sources[index] = sourceObject.AddComponent<AudioSource>();
-        }
-
-        return sources[index];
+        return GetOrCreatePooledSource(sources, index, $"MusicSource_{(MusicCues)index}");
     }
+
+    #endregion
+
+    #region Coroutines
 
     private IEnumerator CrossfadeRoutine(MusicCues fromCue, MusicCues toCue, float transitionSeconds, double transportAtTransitionStart)
     {
@@ -568,6 +575,10 @@ public class MusicManager : MonoBehaviour
         TransitionTo(cue, transitionSeconds);
     }
 
+    #endregion
+
+    #region Utility
+
     private void RefreshCurrentVolume()
     {
         MusicCueClipList cueClips = ActiveMusicCueClips;
@@ -706,28 +717,5 @@ public class MusicManager : MonoBehaviour
         return clip.preloadAudioData;
     }
 
-    private void OnDestroy()
-    {
-        if (pendingLoadRoutine != null)
-        {
-            StopCoroutine(pendingLoadRoutine);
-            pendingLoadRoutine = null;
-        }
-
-        for (int i = 0; i < additiveFadeRoutines.Length; i++)
-        {
-            if (additiveFadeRoutines[i] == null)
-            {
-                continue;
-            }
-
-            StopCoroutine(additiveFadeRoutines[i]);
-            additiveFadeRoutines[i] = null;
-        }
-
-        if (_instance == this)
-        {
-            _instance = null;
-        }
-    }
+    #endregion
 }

@@ -1,50 +1,40 @@
 using System;
 using UnityEngine;
 
-public class SoundManager : MonoBehaviour
+public class SoundManager : AudioManager<SoundManager>
 {
+    #region Inspector
 
     public SoundCueClipList soundCueClips;
     private SoundCueClipList runtimeSoundCueClips;
 
-    private readonly AudioSource[] sources = new AudioSource[Enum.GetValues(typeof(SoundCues)).Length];
+    #endregion
 
-    private static SoundManager _instance;
+    #region Runtime State
+
+    private readonly AudioSource[] sources = new AudioSource[Enum.GetValues(typeof(SoundCues)).Length];
 
     private SoundCueClipList ActiveSoundCueClips => runtimeSoundCueClips != null ? runtimeSoundCueClips : soundCueClips;
 
-    public static SoundManager Instance
-    {
-        get
-        {
-            if (_instance == null)
-            {
-                GameObject managerObject = new("SoundManager");
-                _instance = managerObject.AddComponent<SoundManager>();
-            }
-            return _instance;
-        }
-    }
+    #endregion
 
-    private SoundManager() { }
+    #region Unity Lifecycle
 
-    void Awake()
+    protected override void Awake()
     {
-        if (_instance != null && _instance != this)
+        base.Awake();
+
+        if (Instance != this)
         {
-            Destroy(gameObject);
             return;
         }
-        _instance = this;
 
-        if (Application.isPlaying && soundCueClips != null)
-        {
-            runtimeSoundCueClips = Instantiate(soundCueClips);
-            runtimeSoundCueClips.name = $"{soundCueClips.name} (Runtime)";
-        }
-
-        DontDestroyOnLoad(gameObject);
+        runtimeSoundCueClips = CreateRuntimeCueList(soundCueClips);
     }
+
+    #endregion
+
+    #region Public API
 
     public bool PlayFromCue(SoundCues cue, CuePlaybackPolicy<SoundCues> playbackPolicy = default)
     {
@@ -110,6 +100,10 @@ public class SoundManager : MonoBehaviour
         return source != null && source.isPlaying;
     }
 
+    #endregion
+
+    #region Playback Helpers
+
     private bool PlayTransient(SoundCueClip soundCueClip, SoundCues cue, Vector3 position)
     {
         if (soundCueClip == null || soundCueClip.clip == null)
@@ -151,28 +145,14 @@ public class SoundManager : MonoBehaviour
         return true;
     }
 
+    #endregion
+
+    #region Source Helpers
+
     private AudioSource GetOrCreateSource(int index, SoundCues cue)
     {
-        if (index < 0 || index >= sources.Length)
-        {
-            return null;
-        }
-
-        if (sources[index] == null)
-        {
-            GameObject sourceObject = new($"SoundSource_{cue}");
-            sourceObject.transform.SetParent(transform, false);
-            sources[index] = sourceObject.AddComponent<AudioSource>();
-        }
-
-        return sources[index];
+        return GetOrCreatePooledSource(sources, index, $"SoundSource_{cue}");
     }
 
-    private void OnDestroy()
-    {
-        if (_instance == this)
-        {
-            _instance = null;
-        }
-    }
+    #endregion
 }

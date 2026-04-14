@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class WorkdayManager : MonoBehaviour
+public class WorkdayManager : DoNotDestroySingletonManager<WorkdayManager>
 {
     #region Inspector
 
