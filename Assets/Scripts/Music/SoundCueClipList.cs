@@ -17,7 +17,7 @@ public class SoundCueClipList : CueClipList
         for (int i = 0; i < clips.Length; i++)
         {
             SoundCueClip soundCueClip = clips[i];
-            if (soundCueClip != null && soundCueClip.cue == cue)
+            if (soundCueClip != null && soundCueClip.CueId == cue)
             {
                 return soundCueClip;
             }

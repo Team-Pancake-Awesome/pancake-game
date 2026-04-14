@@ -5,6 +5,7 @@ using UnityEngine;
 public class MusicManager : MonoBehaviour
 {
     public MusicCueClipList musicCueClips;
+    private MusicCueClipList runtimeMusicCueClips;
     
     [Header("Dynamic Music")]
     [Min(0f)]
@@ -33,6 +34,8 @@ public class MusicManager : MonoBehaviour
     private float intensity01 = 1f;
     private (float time, MusicCues cue)? lastTransition;
 
+    private MusicCueClipList ActiveMusicCueClips => runtimeMusicCueClips != null ? runtimeMusicCueClips : musicCueClips;
+
     public static MusicManager Instance
     {
         get
@@ -60,6 +63,13 @@ public class MusicManager : MonoBehaviour
             return;
         }
         _instance = this;
+
+        if (Application.isPlaying && musicCueClips != null)
+        {
+            runtimeMusicCueClips = Instantiate(musicCueClips);
+            runtimeMusicCueClips.name = $"{musicCueClips.name} (Runtime)";
+        }
+
         DontDestroyOnLoad(gameObject);
     }
 
@@ -163,13 +173,14 @@ public class MusicManager : MonoBehaviour
 
     private bool CanPlayCue(MusicCues cue)
     {
-        if (musicCueClips == null)
+        MusicCueClipList cueClips = ActiveMusicCueClips;
+        if (cueClips == null)
         {
             Debug.LogError("MusicManager is missing MusicCueClips reference.");
             return false;
         }
 
-        if (!musicCueClips.TryGetClip(cue, out MusicCueClip cueClip) || cueClip == null || cueClip.clip == null)
+        if (!cueClips.TryGetClip(cue, out MusicCueClip cueClip) || cueClip == null || cueClip.clip == null)
         {
             Debug.LogError($"Music cue {cue} is missing a valid audio clip.");
             return false;
@@ -213,13 +224,14 @@ public class MusicManager : MonoBehaviour
 
     public void TransitionTo(MusicCues cue, float transitionSeconds)
     {
-        if (musicCueClips == null)
+        MusicCueClipList cueClips = ActiveMusicCueClips;
+        if (cueClips == null)
         {
             Debug.LogError("MusicManager is missing MusicCueClips reference.");
             return;
         }
 
-        if (!musicCueClips.TryGetClip(cue, out MusicCueClip nextCueClip) || nextCueClip == null || nextCueClip.clip == null)
+        if (!cueClips.TryGetClip(cue, out MusicCueClip nextCueClip) || nextCueClip == null || nextCueClip.clip == null)
         {
             Debug.LogError($"Music cue {cue} is missing a valid audio clip.");
             return;
@@ -318,12 +330,13 @@ public class MusicManager : MonoBehaviour
         AudioSource fromSource = GetOrCreateSource(fromIndex);
         AudioSource toSource = GetOrCreateSource(toIndex);
 
-        if (!musicCueClips.TryGetClip(fromCue, out MusicCueClip fromCueClip) || fromCueClip == null)
+        MusicCueClipList cueClips = ActiveMusicCueClips;
+        if (cueClips == null || !cueClips.TryGetClip(fromCue, out MusicCueClip fromCueClip) || fromCueClip == null)
         {
             fromCueClip = new MusicCueClip { volume = fromSource != null ? fromSource.volume : 1f };
         }
 
-        if (!musicCueClips.TryGetClip(toCue, out MusicCueClip toCueClip) || toCueClip == null)
+        if (cueClips == null || !cueClips.TryGetClip(toCue, out MusicCueClip toCueClip) || toCueClip == null)
         {
             transitionRoutine = null;
             yield break;
@@ -445,6 +458,8 @@ public class MusicManager : MonoBehaviour
 
     private void StopAllAdditiveLayers(float fadeOutSeconds)
     {
+        MusicCueClipList cueClips = ActiveMusicCueClips;
+
         for (int i = 0; i < additiveActive.Length; i++)
         {
             if (!additiveActive[i])
@@ -460,7 +475,7 @@ public class MusicManager : MonoBehaviour
             }
 
             float duration = Mathf.Max(0f, fadeOutSeconds);
-            if (musicCueClips != null && musicCueClips.TryGetClip((MusicCues)i, out MusicCueClip cueClip) && cueClip != null)
+            if (cueClips != null && cueClips.TryGetClip((MusicCues)i, out MusicCueClip cueClip) && cueClip != null)
             {
                 duration = Mathf.Max(duration, cueClip.additiveTransitionTime);
             }
@@ -555,7 +570,8 @@ public class MusicManager : MonoBehaviour
 
     private void RefreshCurrentVolume()
     {
-        if (musicCueClips == null)
+        MusicCueClipList cueClips = ActiveMusicCueClips;
+        if (cueClips == null)
         {
             return;
         }
@@ -564,7 +580,7 @@ public class MusicManager : MonoBehaviour
         {
             int index = (int)currentCue;
             AudioSource source = GetOrCreateSource(index);
-            if (source != null && musicCueClips.TryGetClip(currentCue, out MusicCueClip cueClip) && cueClip != null)
+            if (source != null && cueClips.TryGetClip(currentCue, out MusicCueClip cueClip) && cueClip != null)
             {
                 source.volume = cueClip.volume * EvaluateIntensityMultiplier();
             }
@@ -577,7 +593,7 @@ public class MusicManager : MonoBehaviour
                 continue;
             }
 
-            if (!musicCueClips.TryGetClip((MusicCues)i, out MusicCueClip additiveCueClip) || additiveCueClip == null)
+            if (!cueClips.TryGetClip((MusicCues)i, out MusicCueClip additiveCueClip) || additiveCueClip == null)
             {
                 continue;
             }

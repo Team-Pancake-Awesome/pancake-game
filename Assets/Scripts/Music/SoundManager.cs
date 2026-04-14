@@ -5,10 +5,13 @@ public class SoundManager : MonoBehaviour
 {
 
     public SoundCueClipList soundCueClips;
+    private SoundCueClipList runtimeSoundCueClips;
 
     private readonly AudioSource[] sources = new AudioSource[Enum.GetValues(typeof(SoundCues)).Length];
 
     private static SoundManager _instance;
+
+    private SoundCueClipList ActiveSoundCueClips => runtimeSoundCueClips != null ? runtimeSoundCueClips : soundCueClips;
 
     public static SoundManager Instance
     {
@@ -33,6 +36,13 @@ public class SoundManager : MonoBehaviour
             return;
         }
         _instance = this;
+
+        if (Application.isPlaying && soundCueClips != null)
+        {
+            runtimeSoundCueClips = Instantiate(soundCueClips);
+            runtimeSoundCueClips.name = $"{soundCueClips.name} (Runtime)";
+        }
+
         DontDestroyOnLoad(gameObject);
     }
 
@@ -43,7 +53,8 @@ public class SoundManager : MonoBehaviour
 
     public bool PlayFromCue(SoundCues cue, Vector3 position, CuePlaybackPolicy<SoundCues> playbackPolicy = default)
     {
-        if (!soundCueClips.TryGetClip(cue, out SoundCueClip soundCueClip))
+        SoundCueClipList cueClips = ActiveSoundCueClips;
+        if (cueClips == null || !cueClips.TryGetClip(cue, out SoundCueClip soundCueClip))
         {
             return false;
         }

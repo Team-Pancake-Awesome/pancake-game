@@ -4,7 +4,7 @@ using UnityEngine;
 [Serializable]
 public abstract class CueClip
 {
-    public int cue;
+    public abstract int CueId { get; }
     public float volume = 1f;
     public float pitch = 1f;
     public bool loop = true;

@@ -4,6 +4,11 @@ using UnityEngine;
 [Serializable]
 public class SoundCueClip : CueClip
 {
+    [SerializeField]
+    private SoundCues cue;
+
+    public override int CueId => (int)cue;
+
     public void Play(AudioSource source, Vector3 position)
     {
         if (source == null || clip == null)
