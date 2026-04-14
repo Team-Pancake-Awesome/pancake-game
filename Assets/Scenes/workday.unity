@@ -7714,7 +7714,7 @@ MonoBehaviour:
   potAxisMax: 0.85
   invertPot: 0
   fallbackPotValue: 0
-  actionButtonName: button2
+  actionButtonName: trigger
   useTriggerForAction: 0
   lockKey: 32
   minPitchInput: 30
