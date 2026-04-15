@@ -33,7 +33,7 @@ MonoBehaviour:
     maxDistance: 500
     rolloffMode: 0
     minDistance: 1
-    clip: {fileID: 8300000, guid: 26e18666cb133d645818cc7280f05710, type: 3}
+    clip: {fileID: 8300000, guid: 0959fdc18b5d778aa9aad8a259eef6cb, type: 3}
     cue: 1
     additive: 1
     additiveTransitionTime: 0
@@ -45,7 +45,7 @@ MonoBehaviour:
     maxDistance: 500
     rolloffMode: 0
     minDistance: 1
-    clip: {fileID: 8300000, guid: 6831f35487fbd021e9f3c568008382e9, type: 3}
+    clip: {fileID: 8300000, guid: 95fece3b1892b6c9e90c8f6bab2934cb, type: 3}
     cue: 2
     additive: 1
     additiveTransitionTime: 0
@@ -57,7 +57,7 @@ MonoBehaviour:
     maxDistance: 500
     rolloffMode: 0
     minDistance: 1
-    clip: {fileID: 8300000, guid: f5905bd5891096f10a74af64e2b0530b, type: 3}
+    clip: {fileID: 8300000, guid: 652e632edd09e2b519bc3e43e858d96e, type: 3}
     cue: 3
     additive: 1
     additiveTransitionTime: 0
@@ -81,7 +81,7 @@ MonoBehaviour:
     maxDistance: 500
     rolloffMode: 0
     minDistance: 1
-    clip: {fileID: 8300000, guid: 2df44b27ba0ee97d5aee90e21ad1276b, type: 3}
+    clip: {fileID: 8300000, guid: c4431086cef33edaeb2eb6ddb2d6d1d7, type: 3}
     cue: 5
     additive: 0
     additiveTransitionTime: 0
