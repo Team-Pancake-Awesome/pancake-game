@@ -55,6 +55,8 @@ public class MusicManager : AudioManager<MusicManager>
         }
 
         runtimeMusicCueClips = CreateRuntimeCueList(musicCueClips);
+        PreloadCueClip(MusicCues.Intro);
+        PreloadCueClip(MusicCues.Normal);
     }
 
     void Update()
@@ -220,6 +222,10 @@ public class MusicManager : AudioManager<MusicManager>
         }
 
         double transitionTransportSeconds = GetCurrentTransportSeconds();
+        if (hasCurrentCue && currentCue == MusicCues.Intro && cue == MusicCues.Normal)
+        {
+            transitionTransportSeconds = 0d;
+        }
 
         nextCueClip.ApplyToSource(nextSource, GetPlaybackAnchor(), EvaluateIntensityMultiplier());
         ApplyPlaybackOverrides(nextSource);
@@ -747,12 +753,22 @@ public class MusicManager : AudioManager<MusicManager>
             return;
         }
 
+        PreloadCueClip(MusicCues.Normal);
         introTransitionRoutine = StartCoroutine(WaitForIntroThenTransitionToNormal(clip));
     }
 
     private IEnumerator WaitForIntroThenTransitionToNormal(AudioClip introClip)
     {
         int introIndex = (int)MusicCues.Intro;
+        MusicCueClip normalCueClip = null;
+        bool hasNormalCue = ActiveMusicCueClips != null
+            && ActiveMusicCueClips.TryGetClip(MusicCues.Normal, out normalCueClip)
+            && normalCueClip != null
+            && normalCueClip.clip != null;
+        AudioClip normalClip = hasNormalCue ? normalCueClip.clip : null;
+        float preloadWindow = Mathf.Max(0.1f, defaultTransitionSeconds);
+        const float introEndThresholdSeconds = 0.01f;
+        const float introToNormalTransitionSeconds = 0f;
 
         while (hasCurrentCue && currentCue == MusicCues.Intro)
         {
@@ -763,14 +779,27 @@ public class MusicManager : AudioManager<MusicManager>
                 yield break;
             }
 
+            float remainingSeconds = Mathf.Max(0f, introClip.length - introSource.time);
+
             if (!introSource.isPlaying)
             {
-                yield return null;
-                continue;
+                remainingSeconds = 0f;
             }
 
-            float remainingSeconds = Mathf.Max(0f, introClip.length - introSource.time);
-            if (remainingSeconds <= 0.05f)
+            if (normalClip != null && remainingSeconds <= Mathf.Max(preloadWindow, 1f))
+            {
+                PreloadCueClip(MusicCues.Normal);
+            }
+
+            if (normalClip != null && remainingSeconds <= introEndThresholdSeconds && IsClipReady(normalClip))
+            {
+                introTransitionRoutine = null;
+                TransitionTo(MusicCues.Normal, introToNormalTransitionSeconds);
+                lastTransition = (Time.time, MusicCues.Normal);
+                yield break;
+            }
+
+            if (remainingSeconds <= introEndThresholdSeconds)
             {
                 break;
             }
@@ -782,8 +811,28 @@ public class MusicManager : AudioManager<MusicManager>
 
         if (hasCurrentCue && currentCue == MusicCues.Intro)
         {
-            TransitionTo(MusicCues.Normal, defaultTransitionSeconds);
+            TransitionTo(MusicCues.Normal, introToNormalTransitionSeconds);
             lastTransition = (Time.time, MusicCues.Normal);
+        }
+    }
+
+    private void PreloadCueClip(MusicCues cue)
+    {
+        MusicCueClipList cueClips = ActiveMusicCueClips;
+        if (cueClips == null)
+        {
+            return;
+        }
+
+        if (!cueClips.TryGetClip(cue, out MusicCueClip cueClip) || cueClip == null || cueClip.clip == null)
+        {
+            return;
+        }
+
+        AudioClip clip = cueClip.clip;
+        if (clip.loadState == AudioDataLoadState.Unloaded)
+        {
+            clip.LoadAudioData();
         }
     }
 

@@ -7128,6 +7128,8 @@ GameObject:
   - component: {fileID: 1670405431}
   - component: {fileID: 1670405433}
   - component: {fileID: 1670405434}
+  - component: {fileID: 1670405435}
+  - component: {fileID: 1670405436}
   m_Layer: 0
   m_Name: Manager
   m_TagString: Untagged
@@ -7148,12 +7150,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   difficultyConfig: {fileID: 0}
-  pancakePrefab: {fileID: 0}
+  pancakePrefab: {fileID: 1192088039}
   pancakeSpawnPoint: {fileID: 0}
   pancakeSpawnParent: {fileID: 0}
-  dayDifficultyConfigs: []
+  dayDifficultyConfigs:
+  - {fileID: 11400000, guid: f02a83404b1bcc9028448d5c62a8370f, type: 2}
+  - {fileID: 11400000, guid: 23b142820a6b4456e86c2f79dd3804a3, type: 2}
   loopDayConfigs: 1
-  spawner: {fileID: 0}
+  spawner: {fileID: 1335265470}
   daySeed: 20260401
   autoStartOnPlay: 1
   logEvents: 1
@@ -7202,6 +7206,37 @@ MonoBehaviour:
   serveCurrentOrderKey: 13
   selectPreviousOrderKey: 273
   selectNextOrderKey: 274
+--- !u!114 &1670405435
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1670405430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2c8cdeedd815d1798adb1d595315e2d6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  musicCueClips: {fileID: 11400000, guid: c15f6a32cbda941d3ac9fda1d8a72308, type: 2}
+  defaultTransitionSeconds: 0.75
+  minIntensityVolumeMultiplier: 0.35
+  force2DMusic: 1
+  TimeTransitionBackToNormalSeconds: 15
+  TransitionBackToNormalAfterSeconds: 1
+--- !u!114 &1670405436
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1670405430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f803cba2b6e8cb52d8479a2ed89a78ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  soundCueClips: {fileID: 11400000, guid: 7a6c30823b177464591e8867c72a4275, type: 2}
 --- !u!1 &1711871458
 GameObject:
   m_ObjectHideFlags: 0
@@ -7569,9 +7604,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 593c105aa68338a42af6b08c60f90d80, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentInputMode: 0
-  primaryInputComponent: {fileID: 0}
-  secondaryInputComponent: {fileID: 0}
+  currentInputMode: 1
+  primaryInputComponent: {fileID: 1908231347}
+  secondaryInputComponent: {fileID: 1908231346}
   allowFallbackInput: 1
   rotationSmoothSpeed: 12
   minAngle: -20
