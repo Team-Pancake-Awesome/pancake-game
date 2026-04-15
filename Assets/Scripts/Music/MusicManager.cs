@@ -12,6 +12,9 @@ public class MusicManager : AudioManager<MusicManager>
     [Min(0f)]
     public float defaultTransitionSeconds = 0.75f;
 
+    [Min(0f)]
+    public float introToNormalAdvanceSeconds = 0.03f;
+
     [Range(0f, 1f)]
     public float minIntensityVolumeMultiplier = 0.35f;
 
@@ -33,6 +36,7 @@ public class MusicManager : AudioManager<MusicManager>
     private Coroutine transitionRoutine;
     private Coroutine pendingLoadRoutine;
     private Coroutine introTransitionRoutine;
+    private Coroutine scheduledIntroToNormalCommitRoutine;
     private MusicCues currentCue;
     private bool hasCurrentCue;
     private double transportSeconds;
@@ -89,6 +93,12 @@ public class MusicManager : AudioManager<MusicManager>
         {
             StopCoroutine(introTransitionRoutine);
             introTransitionRoutine = null;
+        }
+
+        if (scheduledIntroToNormalCommitRoutine != null)
+        {
+            StopCoroutine(scheduledIntroToNormalCommitRoutine);
+            scheduledIntroToNormalCommitRoutine = null;
         }
 
         for (int i = 0; i < additiveFadeRoutines.Length; i++)
@@ -731,13 +741,7 @@ public class MusicManager : AudioManager<MusicManager>
             return false;
         }
 
-        if (clip.loadState == AudioDataLoadState.Loaded)
-        {
-            return true;
-        }
-
-        // On some imports the clip can still play directly even when not preloaded.
-        return clip.preloadAudioData;
+        return clip.loadState == AudioDataLoadState.Loaded;
     }
 
     private void HandleIntroTransition(MusicCues cue, AudioClip clip)
@@ -779,11 +783,11 @@ public class MusicManager : AudioManager<MusicManager>
                 yield break;
             }
 
-            float remainingSeconds = Mathf.Max(0f, introClip.length - introSource.time);
+            double remainingSeconds = GetSourceRemainingSeconds(introSource, introClip);
 
             if (!introSource.isPlaying)
             {
-                remainingSeconds = 0f;
+                remainingSeconds = 0d;
             }
 
             if (normalClip != null && remainingSeconds <= Mathf.Max(preloadWindow, 1f))
@@ -791,8 +795,21 @@ public class MusicManager : AudioManager<MusicManager>
                 PreloadCueClip(MusicCues.Normal);
             }
 
+            if (normalClip != null && introSource.isPlaying && IsClipReady(normalClip))
+            {
+                if (TryScheduleIntroToNormal(introSource, normalClip, remainingSeconds))
+                {
+                    yield break;
+                }
+            }
+
             if (normalClip != null && remainingSeconds <= introEndThresholdSeconds && IsClipReady(normalClip))
             {
+                if (TryScheduleIntroToNormal(introSource, normalClip, remainingSeconds))
+                {
+                    yield break;
+                }
+
                 introTransitionRoutine = null;
                 TransitionTo(MusicCues.Normal, introToNormalTransitionSeconds);
                 lastTransition = (Time.time, MusicCues.Normal);
@@ -811,9 +828,117 @@ public class MusicManager : AudioManager<MusicManager>
 
         if (hasCurrentCue && currentCue == MusicCues.Intro)
         {
+            AudioSource introSource = GetOrCreateSource(introIndex);
+            if (normalClip != null && IsClipReady(normalClip) && TryScheduleIntroToNormal(introSource, normalClip, 0d))
+            {
+                yield break;
+            }
+
+            if (normalClip != null && !IsClipReady(normalClip))
+            {
+                Debug.LogWarning($"Intro ended before Normal was loaded. Normal loadState: {normalClip.loadState}");
+            }
+
             TransitionTo(MusicCues.Normal, introToNormalTransitionSeconds);
             lastTransition = (Time.time, MusicCues.Normal);
         }
+    }
+
+    private bool TryScheduleIntroToNormal(AudioSource introSource, AudioClip normalClip, double delaySeconds)
+    {
+        if (normalClip == null)
+        {
+            return false;
+        }
+
+        MusicCueClipList cueClips = ActiveMusicCueClips;
+        if (cueClips == null || !cueClips.TryGetClip(MusicCues.Normal, out MusicCueClip normalCueClip) || normalCueClip == null)
+        {
+            return false;
+        }
+
+        AudioSource normalSource = GetOrCreateSource((int)MusicCues.Normal);
+        if (normalSource == null)
+        {
+            return false;
+        }
+
+        if (transitionRoutine != null)
+        {
+            StopCoroutine(transitionRoutine);
+            transitionRoutine = null;
+        }
+
+        StopAllAdditiveLayers(normalCueClip.additiveTransitionTime);
+        normalCueClip.ApplyToSource(normalSource, GetPlaybackAnchor(), EvaluateIntensityMultiplier());
+        ApplyPlaybackOverrides(normalSource);
+        normalSource.volume = normalCueClip.volume * EvaluateIntensityMultiplier();
+        normalSource.timeSamples = 0;
+
+        if (normalSource.isPlaying)
+        {
+            normalSource.Stop();
+        }
+
+        double earlyAdvanceSeconds = Math.Max(0d, introToNormalAdvanceSeconds);
+        double adjustedDelaySeconds = Math.Max(0d, delaySeconds - earlyAdvanceSeconds);
+        const double minLeadSeconds = 0.005d;
+        double startDspTime = AudioSettings.dspTime + Math.Max(minLeadSeconds, adjustedDelaySeconds);
+        normalSource.PlayScheduled(startDspTime);
+
+        if (introSource != null && introSource.isPlaying)
+        {
+            introSource.SetScheduledEndTime(startDspTime);
+        }
+
+        if (scheduledIntroToNormalCommitRoutine != null)
+        {
+            StopCoroutine(scheduledIntroToNormalCommitRoutine);
+        }
+
+        scheduledIntroToNormalCommitRoutine = StartCoroutine(CommitScheduledIntroToNormal(startDspTime, normalClip));
+        introTransitionRoutine = null;
+        lastTransition = (Time.time, MusicCues.Normal);
+        return true;
+    }
+
+    private static double GetSourceRemainingSeconds(AudioSource source, AudioClip clip)
+    {
+        if (source == null || clip == null)
+        {
+            return 0d;
+        }
+
+        int frequency = Math.Max(1, clip.frequency);
+        int remainingSamples = Math.Max(0, clip.samples - source.timeSamples);
+        return (double)remainingSamples / frequency;
+    }
+
+    private IEnumerator CommitScheduledIntroToNormal(double normalStartDspTime, AudioClip normalClip)
+    {
+        while (AudioSettings.dspTime < normalStartDspTime)
+        {
+            if (!hasCurrentCue || currentCue != MusicCues.Intro)
+            {
+                scheduledIntroToNormalCommitRoutine = null;
+                yield break;
+            }
+
+            yield return null;
+        }
+
+        int normalIndex = (int)MusicCues.Normal;
+        AudioSource normalSource = GetOrCreateSource(normalIndex);
+        if (normalSource == null || normalSource.clip != normalClip)
+        {
+            scheduledIntroToNormalCommitRoutine = null;
+            yield break;
+        }
+
+        currentCue = MusicCues.Normal;
+        hasCurrentCue = true;
+        HandleIntroTransition(MusicCues.Normal, normalClip);
+        scheduledIntroToNormalCommitRoutine = null;
     }
 
     private void PreloadCueClip(MusicCues cue)
