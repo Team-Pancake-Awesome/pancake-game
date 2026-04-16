@@ -14,7 +14,6 @@ public class UIManager : MonoBehaviour
     public GameObject debugMenu;
     public GameObject pauseMenu;
     
-    [SerializeField]
     public string mainMenu;
     public string gameSceneName;
     // Start is called before the first frame update
