@@ -7473,7 +7473,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   musicCueClips: {fileID: 11400000, guid: c15f6a32cbda941d3ac9fda1d8a72308, type: 2}
   defaultTransitionSeconds: 0.75
-  introToNormalAdvanceSeconds: 0.21800454
+  introToNormalAdvanceSeconds: 0.185
   minIntensityVolumeMultiplier: 0.35
   force2DMusic: 1
   TimeTransitionBackToNormalSeconds: 15

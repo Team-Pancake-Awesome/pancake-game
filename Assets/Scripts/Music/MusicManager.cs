@@ -13,7 +13,7 @@ public class MusicManager : AudioManager<MusicManager>
     public float defaultTransitionSeconds = 0.75f;
 
     [Min(0f)]
-    public float introToNormalAdvanceSeconds = 0.03f;
+    public float introToNormalAdvanceSeconds = 0.185f;
 
     [Range(0f, 1f)]
     public float minIntensityVolumeMultiplier = 0.35f;
