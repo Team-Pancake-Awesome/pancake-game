@@ -42,7 +42,7 @@ MonoBehaviour:
     rolloffMode: 0
     minDistance: 1
     clip: {fileID: 8300000, guid: 90e1fdf44242df16fb0c4d3cfcd6d0c6, type: 3}
-    cue: 3
+    cue: 2
   - volume: 1
     pitch: 1
     loop: 0
@@ -52,4 +52,4 @@ MonoBehaviour:
     rolloffMode: 0
     minDistance: 1
     clip: {fileID: 8300000, guid: 119159bd34ad1c35cbd3176382d45113, type: 3}
-    cue: 5
+    cue: 4
