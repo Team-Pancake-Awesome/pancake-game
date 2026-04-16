@@ -8092,7 +8092,7 @@ GameObject:
   - component: {fileID: 1908231344}
   - component: {fileID: 1908231343}
   - component: {fileID: 1908231346}
-  - component: {fileID: 1908231347}
+  - component: {fileID: 1908231348}
   m_Layer: 6
   m_Name: Spatula
   m_TagString: Spatula
@@ -8112,8 +8112,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 593c105aa68338a42af6b08c60f90d80, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentInputMode: 1
-  primaryInputComponent: {fileID: 1908231347}
+  currentInputMode: 0
+  primaryInputComponent: {fileID: 1908231348}
   secondaryInputComponent: {fileID: 1908231346}
   allowFallbackInput: 1
   rotationSmoothSpeed: 12
@@ -8167,40 +8167,42 @@ MonoBehaviour:
   minSwipeSpeed: 1500
   maxSwipeSpeed: 5500
   cooldown: 0.35
---- !u!114 &1908231347
+--- !u!114 &1908231348
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1908231342}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2103193782ac07e469b2e27f04397b56, type: 3}
+  m_Script: {fileID: 11500000, guid: 389436814111a3d4799a60c61d1fa9f7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  portName: COM6
-  manuallyAssignPort: 1
-  baudRate: 115200
-  reconnectInterval: 1.5
-  staleDataTimeout: 1.2
-  maxConsecutiveGarbagePackets: 12
-  firstPacketTimeout: 6
-  ensureConnectedLogInterval: 2
-  sensorValue: 0
-  rawPot: 0
-  ignorePot: 0
+  deviceNameContains: 
   enableKeyboardLockFallback: 0
-  pitch: 0
-  roll: 0
-  gyroY: 0
-  accelZ: 0
-  actionButton: 0
+  logLiveValues: 0
+  logInterval: 1
+  invertRoll: 1
+  invertPitch: 1
+  hidPitchRange: 90
+  hidRollRange: 90
+  stickDeadzone: 0.12
+  pitchOffset: 0
+  rollOffset: 0
+  potControlName: z
+  useTriggerForPot: 1
+  potAxisMin: -0.85
+  potAxisMax: 0.85
+  invertPot: 0
+  fallbackPotValue: 0
+  actionButtonName: 
+  useTriggerForAction: 0
   lockKey: 32
   minPitchInput: 30
   maxPitchInput: -40
   rollDeadzone: 2
-  invertRoll: 1
+  enableFlipDetection: 0
   pitchFlipVelocityThreshold: 90
   pitchDeltaThreshold: 2.5
   pitchVelocitySmoothing: 0.25
@@ -8212,7 +8214,13 @@ MonoBehaviour:
   debugPitchVelocity: 0
   debugRoll: 0
   isConnected: 0
-  secondsSinceLastValidPacket: 0
+  connectedDeviceName: 
+  debugStick: {x: 0, y: 0}
+  debugTrigger: 0
+  debugPotAxis: 0
+  debugAnyButtonPressed: 0
+  debugPressedButtonName: 
+  debugPotControlName: 
 --- !u!1 &2048515133
 GameObject:
   m_ObjectHideFlags: 0
