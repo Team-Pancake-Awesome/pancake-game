@@ -13,13 +13,43 @@ MonoBehaviour:
   m_Name: SoundCueClipList
   m_EditorClassIdentifier: 
   clips:
-  - cue: 0
-    volume: 0
-    pitch: 0
+  - volume: 0.1
+    pitch: 1
     loop: 0
     spatialize: 0
     spatialBlend: 0
-    maxDistance: 0
+    maxDistance: 500
     rolloffMode: 0
-    minDistance: 0
-    clip: {fileID: 0}
+    minDistance: 1
+    clip: {fileID: 8300000, guid: 74aac25a0970e1010959eb026b2d070b, type: 3}
+    cue: 0
+  - volume: 1
+    pitch: 1
+    loop: 0
+    spatialize: 0
+    spatialBlend: 0
+    maxDistance: 500
+    rolloffMode: 0
+    minDistance: 1
+    clip: {fileID: 8300000, guid: a878b324c4e557f13881250ac6d75bb3, type: 3}
+    cue: 1
+  - volume: 1
+    pitch: 1
+    loop: 0
+    spatialize: 0
+    spatialBlend: 0
+    maxDistance: 500
+    rolloffMode: 0
+    minDistance: 1
+    clip: {fileID: 8300000, guid: 90e1fdf44242df16fb0c4d3cfcd6d0c6, type: 3}
+    cue: 3
+  - volume: 1
+    pitch: 1
+    loop: 0
+    spatialize: 0
+    spatialBlend: 0
+    maxDistance: 500
+    rolloffMode: 0
+    minDistance: 1
+    clip: {fileID: 8300000, guid: 119159bd34ad1c35cbd3176382d45113, type: 3}
+    cue: 5

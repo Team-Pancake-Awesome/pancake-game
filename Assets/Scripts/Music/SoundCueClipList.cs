@@ -10,7 +10,7 @@ public class SoundCueClipList : CueClipList
     {
         if (clips == null)
         {
-            Debug.LogError($"Sound cue {cue} not found!");
+            Debug.LogError($"Sound cue {(SoundCues)cue} not found!");
             return null;
         }
 
@@ -23,7 +23,7 @@ public class SoundCueClipList : CueClipList
             }
         }
 
-        Debug.LogError($"Sound cue {cue} not found!");
+        Debug.LogError($"Sound cue {(SoundCues)cue} not found!");
         return null;
     }
 
