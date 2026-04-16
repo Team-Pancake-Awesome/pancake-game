@@ -2,10 +2,15 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class WorkdayManager : MonoBehaviour
+public class WorkdayManager : DoNotDestroySingletonManager<WorkdayManager>
 {
+    #region Inspector
+
     [Header("References")]
     public WorkdayDifficultyConfig difficultyConfig;
+    public PancakeController pancakePrefab;
+    public Transform pancakeSpawnPoint;
+    public Transform pancakeSpawnParent;
     public List<WorkdayDifficultyConfig> dayDifficultyConfigs = new();
     public bool loopDayConfigs = true;
     public PancakeSpawner spawner;
@@ -16,6 +21,10 @@ public class WorkdayManager : MonoBehaviour
 
     [Header("Debug")]
     public bool logEvents = true;
+
+    #endregion
+
+    #region Public Properties
 
     public bool IsRunning => currentStage == WorkdayStage.Work || currentStage == WorkdayStage.LastCall;
     public bool IsLastCall => currentStage == WorkdayStage.LastCall;
@@ -33,10 +42,18 @@ public class WorkdayManager : MonoBehaviour
     public float CurrentWorkdayDurationSeconds => Mathf.Max(30f, currentDayConfig != null ? currentDayConfig.workdayDurationSeconds : 240f);
     public WorkdayDifficultyConfig CurrentDayConfig => currentDayConfig;
 
+    #endregion
+
+    #region Events
+
     public event Action<GuestOrder> OnOrderCreated;
     public event Action<GuestOrder, GuestRatingResult> OnOrderServed;
     public event Action<GuestOrder, GuestRatingResult> OnOrderExpired;
     public event Action<WorkdaySummary> OnDayEnded;
+
+    #endregion
+
+    #region Runtime State
 
     private readonly List<GuestOrder> activeOrders = new();
     private readonly Dictionary<int, GuestProfile> guestsById = new();
@@ -63,6 +80,11 @@ public class WorkdayManager : MonoBehaviour
     private int nextGuestId = 1;
     private int nextOrderId = 1;
     private int selectedOrderIndex;
+    private bool loggedMissingPancakePrefab;
+
+    #endregion
+
+    #region Unity Lifecycle
 
     private void Start()
     {
@@ -74,22 +96,28 @@ public class WorkdayManager : MonoBehaviour
 
     private void Update()
     {
+        float now = Time.time;
+
         switch (currentStage)
         {
             case WorkdayStage.Begin:
-                TickBeginStage(Time.time);
+                TickBeginStage(now);
                 return;
             case WorkdayStage.Work:
-                TickWorkStage(Time.time);
+                TickWorkStage(now);
                 return;
             case WorkdayStage.LastCall:
-                TickLastCallStage(Time.time);
+                TickLastCallStage(now);
                 return;
             case WorkdayStage.Rating:
-                TickRatingStage(Time.time);
+                TickRatingStage(now);
                 return;
         }
     }
+
+    #endregion
+
+    #region Public API
 
     public void BeginWorkday(int? overrideSeed = null)
     {
@@ -97,6 +125,20 @@ public class WorkdayManager : MonoBehaviour
         currentDayIndex = -1;
         lastElapsedTime = 0f;
 
+        activeOrders.Clear();
+        guestsById.Clear();
+
+        MusicManager.Instance.PlayMusicNow(MusicCues.Normal);
+
+        currentSummary = new WorkdaySummary
+        {
+            dayDurationSeconds = CurrentWorkdayDurationSeconds
+        };
+
+        if (logEvents)
+        {
+            Debug.Log($"Workday started with seed {runSeedBase}.");
+        }
         // Start immediately when beginning a run.
         EnterBeginStage(skipBeginDelay: true);
     }
@@ -137,6 +179,10 @@ public class WorkdayManager : MonoBehaviour
     {
         MoveSelection(1);
     }
+
+    #endregion
+
+    #region Stage Flow
 
     private void TickBeginStage(float now)
     {
@@ -320,6 +366,10 @@ public class WorkdayManager : MonoBehaviour
         return config != null;
     }
 
+    #endregion
+
+    #region Order Processing
+
     private bool ServeOrderAtIndex(int index)
     {
         if (!IsRunning || activeOrders.Count == 0)
@@ -356,6 +406,7 @@ public class WorkdayManager : MonoBehaviour
         ClampSelectedOrderIndex();
 
         OnOrderServed?.Invoke(order, rating);
+        SoundManager.Instance.PlayFromCue(SoundCues.OrderSubmitted, transform.position);
 
         if (logEvents)
         {
@@ -400,6 +451,7 @@ public class WorkdayManager : MonoBehaviour
         activeOrders.Add(order);
         ClampSelectedOrderIndex();
         OnOrderCreated?.Invoke(order);
+        SoundManager.Instance.PlayFromCue(SoundCues.ReceiveOrder, transform.position);
 
         if (logEvents)
         {
@@ -433,12 +485,17 @@ public class WorkdayManager : MonoBehaviour
         ClampSelectedOrderIndex();
 
         OnOrderExpired?.Invoke(order, rating);
+        SoundManager.Instance.PlayFromCue(SoundCues.FailedOrder, transform.position);
 
         if (logEvents)
         {
             Debug.Log($"Expired order from {order.guestName} at t={now:F1}s");
         }
     }
+
+    #endregion
+
+    #region Selection Helpers
 
     private void MoveSelection(int delta)
     {
@@ -472,6 +529,10 @@ public class WorkdayManager : MonoBehaviour
         selectedOrderIndex = Mathf.Clamp(selectedOrderIndex, 0, activeOrders.Count - 1);
     }
 
+    #endregion
+
+    #region Rating & Pancake Helpers
+
     private void RecordRating(GuestRatingResult rating)
     {
         currentSummary.ratings.Add(rating);
@@ -485,25 +546,53 @@ public class WorkdayManager : MonoBehaviour
             return;
         }
 
+        Transform sourceTransform = servedPancake.transform;
+
         // Ensure we break scoop/hold links before replacement and removal.
         servedPancake.Drop();
 
-        if (!PancakeRegistry.TryGetInstance(out PancakeRegistry registry))
-        {
-            Debug.LogError("No PancakeRegistry instance found. Cannot respawn served pancake.");
-            return;
-        }
-
-        if (spawner != null && registry.Pancakes.Count < currentDayConfig.numPancakesMax)
+        bool spawnedViaSpawner = false;
+        if (spawner != null &&
+            currentDayConfig != null &&
+            PancakeRegistry.TryGetInstance(out PancakeRegistry registryForCount) &&
+            registryForCount.Pancakes.Count < currentDayConfig.numPancakesMax)
         {
             spawner.SpawnPancake();
-        }
-        else if (logEvents)
-        {
-            Debug.LogWarning("WorkdayManager has no usable pancake prefab/template. Served pancake removed without replacement.");
+            spawnedViaSpawner = true;
         }
 
-        registry.Unregister(servedPancake);
+        if (!spawnedViaSpawner)
+        {
+            GameObject spawnTemplate = pancakePrefab != null
+                ? pancakePrefab.gameObject
+                : servedPancake.gameObject;
+
+            if (spawnTemplate != null)
+            {
+                Transform spawnTransform = pancakeSpawnPoint != null ? pancakeSpawnPoint : sourceTransform;
+                Transform spawnParent = pancakeSpawnParent != null ? pancakeSpawnParent : sourceTransform.parent;
+
+                // TODO: Replace this instantiate path with object pooling.
+                Instantiate(
+                    spawnTemplate,
+                    spawnTransform.position,
+                    spawnTransform.rotation,
+                    spawnParent);
+
+                SoundManager.Instance.PlayFromCue(SoundCues.PourBatter, spawnTransform.position);
+            }
+            else if (logEvents && !loggedMissingPancakePrefab)
+            {
+                loggedMissingPancakePrefab = true;
+                Debug.LogWarning("WorkdayManager has no usable pancake prefab/template. Served pancake removed without replacement.");
+            }
+        }
+
+        if (PancakeRegistry.TryGetInstance(out PancakeRegistry registry))
+        {
+            registry.Unregister(servedPancake);
+        }
+
         // Hide immediately so it is visually gone this frame.
         servedPancake.gameObject.SetActive(false);
         Destroy(servedPancake.gameObject);
@@ -539,4 +628,6 @@ public class WorkdayManager : MonoBehaviour
 
         return string.Join(", ", order.requiredToppings);
     }
+
+    #endregion
 }

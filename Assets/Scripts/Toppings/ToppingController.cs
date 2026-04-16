@@ -115,6 +115,7 @@ public class ToppingController : MonoBehaviour
 		Vector3 surfacePosition = GetRandomSurfacePosition(pancake);
 		transform.SetParent(pancake.transform, true);
 		transform.position = surfacePosition + (Vector3.up * surfaceYOffset);
+		SoundManager.Instance.PlayFromCue(SoundCues.AddToppings, transform.position);
 
 		GravityScript gravityScript = GetComponent<GravityScript>();
 		if (gravityScript != null)
