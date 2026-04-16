@@ -35,13 +35,11 @@ public class Plate : MonoBehaviour
             return;
         }
 
-        bool served = workdayManager.ServeOrderById(orderId);
+        bool served = workdayManager.ServeOrderById(orderId, pancakeController);
         if (!served)
         {
             return;
         }
-
-        pancakeController.ResetPancake();
 
         isConsumed = true;
         if (TryGetComponent(out Collider plateCollider))

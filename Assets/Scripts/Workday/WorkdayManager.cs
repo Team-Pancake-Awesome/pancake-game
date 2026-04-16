@@ -180,6 +180,16 @@ public class WorkdayManager : DoNotDestroySingletonManager<WorkdayManager>
         return ServeOrderAtIndex(orderIndex);
     }
 
+    public bool ServeOrderById(int orderId, PancakeController servedPancake)
+    {
+        if (!TryGetOrderIndexById(orderId, out int orderIndex))
+        {
+            return false;
+        }
+
+        return ServeOrderAtIndex(orderIndex, servedPancake);
+    }
+
     public bool TryGetOrderIndexById(int orderId, out int orderIndex)
     {
         for (int i = 0; i < activeOrders.Count; i++)
@@ -207,6 +217,11 @@ public class WorkdayManager : DoNotDestroySingletonManager<WorkdayManager>
 
     public bool ServeOrderAtIndex(int index)
     {
+        return ServeOrderAtIndex(index, null);
+    }
+
+    private bool ServeOrderAtIndex(int index, PancakeController preferredPancake)
+    {
         if (!IsRunning || activeOrders.Count == 0)
         {
             return false;
@@ -223,7 +238,7 @@ public class WorkdayManager : DoNotDestroySingletonManager<WorkdayManager>
         PancakeStats pancakeStats = null;
         if (PancakeRegistry.TryGetInstance(out PancakeRegistry registry))
         {
-            servedPancake = FindServePancakeCandidate(registry);
+            servedPancake = ResolveServePancakeCandidate(registry, preferredPancake);
             if (servedPancake != null)
             {
                 pancakeStats = servedPancake.stats;
@@ -642,6 +657,28 @@ public class WorkdayManager : DoNotDestroySingletonManager<WorkdayManager>
 
         registry.TryGetPancake(out PancakeController fallback);
         return fallback;
+    }
+
+    private static PancakeController ResolveServePancakeCandidate(PancakeRegistry registry, PancakeController preferredPancake)
+    {
+        if (registry == null)
+        {
+            return null;
+        }
+
+        if (preferredPancake != null)
+        {
+            IReadOnlyList<PancakeController> pancakes = registry.Pancakes;
+            for (int i = 0; i < pancakes.Count; i++)
+            {
+                if (pancakes[i] == preferredPancake)
+                {
+                    return preferredPancake;
+                }
+            }
+        }
+
+        return FindServePancakeCandidate(registry);
     }
 
     private static string FormatToppings(GuestOrder order)
