@@ -10,6 +10,8 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
 {
     [Header("Serial Port Settings")]
     public string portName = "";
+    [Tooltip("Use the portName field exactly as entered instead of auto-detecting a serial port.")]
+    public bool manuallyAssignPort = false;
     public int baudRate = 115200;
     [Tooltip("How often to retry opening a serial connection when unavailable")]
     public float reconnectInterval = 1.5f;
@@ -172,7 +174,9 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
             return false;
         }
 
-        portName = FindPort();
+        if (!manuallyAssignPort)
+            portName = FindPort();
+
         bool opened = TryOpenSerial();
         if (!opened)
             LogEnsureConnectedBlocked("open attempt failed");
@@ -210,12 +214,12 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
 
         try
         {
-            if (string.IsNullOrWhiteSpace(portName) || !SerialPort.GetPortNames().Contains(portName))
+            if (!manuallyAssignPort && (string.IsNullOrWhiteSpace(portName) || !SerialPort.GetPortNames().Contains(portName)))
                 portName = FindPort();
 
             if (string.IsNullOrWhiteSpace(portName))
             {
-                Debug.LogWarning("No serial ports found.");
+                Debug.LogWarning(manuallyAssignPort ? "No manually assigned serial port configured." : "No serial ports found.");
                 ScheduleReconnect();
                 return false;
             }
@@ -241,7 +245,9 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
             }
             serialPort = new SerialPort(portName, baudRate)
             {
-                ReadTimeout = 500
+                ReadTimeout = 500,
+                DtrEnable = true,
+                RtsEnable = true
             };
 
             serialPort.Open();
@@ -613,6 +619,12 @@ public class ArduinoReader : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgrou
     [ContextMenu("Refind Port")]
     public void ForceRefindPortNow()
     {
+        if (manuallyAssignPort)
+        {
+            Debug.Log("Manual serial port assignment is enabled. Keeping port: " + (string.IsNullOrEmpty(portName) ? "<none>" : portName));
+            return;
+        }
+
         if (isCloseInProgress)
         {
             Debug.LogWarning("Cannot refind port while serial close is in progress.");
