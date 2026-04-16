@@ -8181,8 +8181,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   deviceNameContains: 
   enableKeyboardLockFallback: 0
-  logLiveValues: 0
-  logInterval: 1
+  logLiveValues: 1
+  logInterval: 0.1
   invertRoll: 1
   invertPitch: 1
   hidPitchRange: 90
@@ -8190,22 +8190,22 @@ MonoBehaviour:
   stickDeadzone: 0.12
   pitchOffset: 0
   rollOffset: 0
-  potControlName: z
-  useTriggerForPot: 1
+  potControlName: rz
+  useTriggerForPot: 0
   potAxisMin: -0.85
   potAxisMax: 0.85
   invertPot: 0
   fallbackPotValue: 0
-  actionButtonName: 
+  actionButtonName: trigger
   useTriggerForAction: 0
   lockKey: 32
   minPitchInput: 30
   maxPitchInput: -40
   rollDeadzone: 2
-  enableFlipDetection: 0
+  enableFlipDetection: 1
   pitchFlipVelocityThreshold: 90
-  pitchDeltaThreshold: 2.5
-  pitchVelocitySmoothing: 0.25
+  pitchDeltaThreshold: 1
+  pitchVelocitySmoothing: 0.1
   rollLimit: 45
   cooldown: 0.35
   debugGyroY: 0
