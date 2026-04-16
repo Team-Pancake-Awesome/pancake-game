@@ -326,6 +326,22 @@ PrefabInstance:
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
       value: LoadMainMenuScene
       objectReference: {fileID: 0}
+    - target: {fileID: 4988744137701600694, guid: a44439070acdb264abc7f7d647970d2e, type: 3}
+      propertyPath: m_text
+      value: 'Average Star Rating :'
+      objectReference: {fileID: 0}
+    - target: {fileID: 4988744137701600694, guid: a44439070acdb264abc7f7d647970d2e, type: 3}
+      propertyPath: m_margin.z
+      value: -22.555847
+      objectReference: {fileID: 0}
+    - target: {fileID: 7182463953563015783, guid: a44439070acdb264abc7f7d647970d2e, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7280720706602761803, guid: a44439070acdb264abc7f7d647970d2e, type: 3}
+      propertyPath: m_TextStyleHashCode
+      value: -1183493901
+      objectReference: {fileID: 0}
     - target: {fileID: 7491560630761944201, guid: a44439070acdb264abc7f7d647970d2e, type: 3}
       propertyPath: m_Name
       value: UICanvas
