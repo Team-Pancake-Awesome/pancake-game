@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(Collider))]
@@ -20,6 +21,13 @@ public class ToppingController : MonoBehaviour
 	[Min(0f)]
 	public float surfaceYOffset = 0.01f;
 
+	private Dictionary<PancakeToppingType, MusicCues> toppingMusicCues = new()
+    {
+		{ PancakeToppingType.Strawberries, MusicCues.AddStrawberries },
+		{ PancakeToppingType.ChocolateChips, MusicCues.AddChocolate },
+		{ PancakeToppingType.Blueberries, MusicCues.AddBlueberries }
+	};
+	
 	private bool applied;
 
 	void Awake()
@@ -111,11 +119,12 @@ public class ToppingController : MonoBehaviour
 		applied = true;
 
 		pancake.AddTopping(toppingType, amount, coverage, customName);
+		TryPlayToppingMusicCue();
 
 		Vector3 surfacePosition = GetRandomSurfacePosition(pancake);
 		transform.SetParent(pancake.transform, true);
 		transform.position = surfacePosition + (Vector3.up * surfaceYOffset);
-		SoundManager.Instance.PlayFromCue(SoundCues.AddToppings, transform.position);
+		// SoundManager.Instance.PlayFromCue(SoundCues.AddToppings, transform.position);
 
 		GravityScript gravityScript = GetComponent<GravityScript>();
 		if (gravityScript != null)
@@ -130,6 +139,19 @@ public class ToppingController : MonoBehaviour
 			ownBody.angularVelocity = Vector3.zero;
 			ownBody.isKinematic = true;
 			ownBody.useGravity = false;
+		}
+	}
+
+	private void TryPlayToppingMusicCue()
+	{
+		if (MusicManager.Instance == null)
+		{
+			return;
+		}
+
+		if (toppingMusicCues.TryGetValue(toppingType, out MusicCues musicCue))
+		{
+			MusicManager.Instance.PlayMusic(musicCue, CuePlaybackPolicy<MusicCues>.IgnorePlayingCues);
 		}
 	}
 
