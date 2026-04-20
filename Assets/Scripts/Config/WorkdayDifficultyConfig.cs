@@ -3,6 +3,16 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "Pancake Game/Workday Difficulty Config", fileName = "WorkdayDifficultyConfig")]
 public class WorkdayDifficultyConfig : ScriptableObject
 {
+    [Header("Stage Timing")]
+    [Min(0f)]
+    public float beginStageSeconds = 0f;
+
+    [Min(30f)]
+    public float workdayDurationSeconds = 240f;
+
+    [Min(0f)]
+    public float ratingStageSeconds = 3f;
+
     [Header("Guest Arrival")]
     [Min(0.5f)]
     public float startArrivalInterval = 14f;
@@ -44,4 +54,10 @@ public class WorkdayDifficultyConfig : ScriptableObject
 
     [Range(0f, 0.25f)]
     public float complexityJitter = 0.05f;
+
+    [Range(0, 100)]
+    public int numPancakesMin = 2;
+
+    [Range(0, 100)]
+    public int numPancakesMax = 10;
 }

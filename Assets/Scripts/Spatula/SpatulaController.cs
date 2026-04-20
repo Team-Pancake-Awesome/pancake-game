@@ -1,20 +1,24 @@
 using UnityEngine;
-using System.Linq;
+using UnityEngine.Serialization;
 
 public class SpatulaController : MonoBehaviour
 {
-    public enum InputMode { Arduino, Mouse }
+    public enum InputMode { Primary, Secondary }
 
     [Header("Input Settings")]
-    [Tooltip("Toggle between two ISpatulaInput sources")]
-    public InputMode currentInputMode = InputMode.Arduino;
-    [Tooltip("Arduino input source component (must implement ISpatulaInput)")]
-    public MonoBehaviour arduinoInputSource;
-    [Tooltip("Mouse input source component (must implement ISpatulaInput)")]
-    public MonoBehaviour mouseInputSource;
+    [Tooltip("Preferred input source. Falls back automatically if unavailable.")]
+    public InputMode currentInputMode = InputMode.Primary;
+    [FormerlySerializedAs("arduinoInput")]
+    [Tooltip("Primary input source component (must implement ISpatulaInput)")]
+    public MonoBehaviour primaryInputComponent;
+    [FormerlySerializedAs("mouseInput")]
+    [Tooltip("Secondary input source component (must implement ISpatulaInput)")]
+    public MonoBehaviour secondaryInputComponent;
+    [Tooltip("If true, the controller will use the secondary input source when the primary is unavailable. If false, it will not attempt to read from the secondary source at all.")]
+    public bool allowFallbackInput = true;
 
-    private ISpatulaInput arduinoInput;
-    private ISpatulaInput mouseInput;
+    private ISpatulaInput primaryInput;
+    private ISpatulaInput secondaryInput;
     private ISpatulaInput activeInput;
 
     [Header("Pitch Rotation")]
@@ -60,34 +64,44 @@ public class SpatulaController : MonoBehaviour
 
     void ResolveInputSources()
     {
-        arduinoInput = arduinoInputSource as ISpatulaInput;
-        mouseInput = mouseInputSource as ISpatulaInput;
+        primaryInput = primaryInputComponent as ISpatulaInput;
+        secondaryInput = secondaryInputComponent as ISpatulaInput;
 
-        var localInputs = GetComponents<MonoBehaviour>()
-            .OfType<ISpatulaInput>()
-            .ToArray();
+        if (primaryInputComponent != null && primaryInput == null)
+            Debug.LogWarning("SpatulaController: Primary input does not implement ISpatulaInput.");
 
-        arduinoInput ??= localInputs.FirstOrDefault();
-        mouseInput ??= localInputs.FirstOrDefault(input => !ReferenceEquals(input, arduinoInput));
+        if (secondaryInputComponent != null && secondaryInput == null)
+            Debug.LogWarning("SpatulaController: Secondary input does not implement ISpatulaInput.");
 
-        var discoveredInputs = FindObjectsOfType<MonoBehaviour>()
-            .OfType<ISpatulaInput>()
-            .ToArray();
-
-        arduinoInput ??= discoveredInputs.FirstOrDefault();
-        mouseInput ??= discoveredInputs.FirstOrDefault(input => !ReferenceEquals(input, arduinoInput));
-
-        if (arduinoInput == null)
+        if (primaryInput == null)
             Debug.LogWarning("SpatulaController: Could not resolve a primary ISpatulaInput source.");
 
-        if (mouseInput == null)
+        if (secondaryInput == null)
             Debug.LogWarning("SpatulaController: Could not resolve a secondary ISpatulaInput source.");
     }
 
     void Update()
     {
-        activeInput = (currentInputMode == InputMode.Mouse) ? mouseInput : arduinoInput;
-        if (activeInput == null || !activeInput.TryGetControlState(out SpatulaControlState inputState))
+        ISpatulaInput preferred = currentInputMode == InputMode.Primary ? primaryInput : secondaryInput;
+        ISpatulaInput fallback = currentInputMode == InputMode.Primary ? secondaryInput : primaryInput;
+
+        SetBackgroundActivityEnabled(preferred, true);
+        SetBackgroundActivityEnabled(fallback, false);
+
+        bool hasInput = TryGetInputState(preferred, out SpatulaControlState inputState);
+
+        if (hasInput)
+        {
+            activeInput = preferred;
+        }
+        else if (allowFallbackInput)
+        {
+            SetBackgroundActivityEnabled(fallback, true);
+            hasInput = TryGetInputState(fallback, out inputState);
+            activeInput = hasInput ? fallback : null;
+        }
+
+        if (!hasInput)
         {
             currentPotValue = 0f;
             lastRawLockHeld = false;
@@ -103,6 +117,18 @@ public class SpatulaController : MonoBehaviour
 
         HandlePancakeInteractions(inputState, rawLockPressed, rawLockHeld, rawLockReleased);
         HandleSpatulaMovement(inputState, rawLockHeld);
+    }
+
+    bool TryGetInputState(ISpatulaInput source, out SpatulaControlState inputState)
+    {
+        inputState = default;
+        return source != null && source.TryGetControlState(out inputState);
+    }
+
+    void SetBackgroundActivityEnabled(ISpatulaInput source, bool enabled)
+    {
+        if (source is ISpatulaInputBackgroundActivity backgroundActivity)
+            backgroundActivity.IsBackgroundActivityEnabled = enabled;
     }
 
     void HandlePancakeInteractions(SpatulaControlState inputState, bool rawLockPressed, bool rawLockHeld, bool rawLockReleased)

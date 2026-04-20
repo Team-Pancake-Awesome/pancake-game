@@ -3,6 +3,8 @@ using System.Collections;
 
 public class PancakeController : MonoBehaviour
 {
+    private const float BurntCookThreshold = 0.92f;
+
     public Rigidbody rb;
 
     [Header("Pancake State")]
@@ -53,12 +55,19 @@ public class PancakeController : MonoBehaviour
     private bool hasScoopedLocalOffset = false;
     private float scoopedWorldZ;
     private Coroutine scoopMoveRoutine;
+    private PancakeSpawner spawner;
 
     void OnEnable()
     {
         if (!Application.isPlaying)
         {
             return;
+        }
+
+        spawner = FindObjectOfType<PancakeSpawner>();
+        if (spawner == null)
+        {
+            Debug.LogError("PancakeSpawner not found!");
         }
 
         PancakeRegistry.Instance.Register(this);
@@ -179,6 +188,7 @@ public class PancakeController : MonoBehaviour
         rb.AddTorque(Vector3.right * appliedTorque, ForceMode.Impulse);
 
         stats?.RegisterFlip();
+        SoundManager.Instance.PlayFromCue(SoundCues.FlipPancake, transform.position);
         
         Debug.Log($"SUCCESSFUL LAUNCH! UpForce: {upForce:F2} | SloppyForce: {sloppyForce.magnitude:F2}");
         return true;
@@ -192,6 +202,14 @@ public class PancakeController : MonoBehaviour
         }
 
         stats.ApplyHeat(heatIntensity, Time.deltaTime);
+
+        if (IsPancakeRuined())
+        {
+            SoundManager.Instance.PlayFromCue(
+                SoundCues.RuinedPancake,
+                transform.position,
+                CuePlaybackPolicy<SoundCues>.YieldToPlayingCue);
+        }
     }
 
     public PancakeTopping AddTopping(PancakeToppingType type, float amount = 1f, float coverage = 0.25f, string customName = "")
@@ -244,6 +262,10 @@ public class PancakeController : MonoBehaviour
         if (spawnPoint != null)
         {
             transform.SetPositionAndRotation(spawnPoint.position, spawnPoint.rotation);
+        }
+        else if (spawner != null)
+        {
+            spawner.RespawnPancake(this);
         }
 
         if (rb != null)
@@ -333,6 +355,7 @@ public class PancakeController : MonoBehaviour
         if (airborne && Time.time - lastLaunchTime > launchGracePeriod)
         {
             airborne = false;
+            SoundManager.Instance.PlayFromCue(SoundCues.PancakeLand, transform.position);
             Debug.Log("Pancake Landed! Ready to scoop.");
         }
     }
@@ -344,5 +367,16 @@ public class PancakeController : MonoBehaviour
             airborne = false;
             Debug.Log("Pancake Failsafe: Reset airborne to false while resting.");
         }
+    }
+
+    bool IsPancakeRuined()
+    {
+        if (stats == null)
+        {
+            return false;
+        }
+
+        return stats.topCookAmount >= BurntCookThreshold ||
+               stats.bottomCookAmount >= BurntCookThreshold;
     }
 }

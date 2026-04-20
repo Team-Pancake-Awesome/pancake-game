@@ -31,7 +31,7 @@ public class MaximumLifetime : MonoBehaviour
             return true;
         }
 
-        // ToppingController removes collider when attached; use this as a fallback signal.
+        // ToppingController removes gravity when attached; use this as a fallback signal.
         return GetComponent<GravityScript>() == null;
     }
 }

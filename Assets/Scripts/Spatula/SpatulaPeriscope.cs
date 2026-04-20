@@ -11,6 +11,8 @@ public class SpatulaPeriscope : MonoBehaviour
 {
     [Header("References")]
     public SpatulaController spatulaController;
+    [Tooltip("Camera used for periscope FOV gizmo drawing. If null, a child camera is used when available.")]
+    public Camera periscopeCamera;
     
     [Header("Positioning")]
     public Vector3 offset = new (0, 0.5f, 0);
@@ -26,12 +28,21 @@ public class SpatulaPeriscope : MonoBehaviour
     [Tooltip("Optional look-at offset on pancake center")]
     public Vector3 pancakeLookOffset = new(0f, 0.1f, 0f);
 
+    [Header("Gizmos")]
+    [Tooltip("Draw the periscope camera frustum in Scene view when selected.")]
+    public bool drawFovGizmo = true;
+
     private PancakeController trackedPancake;
     private Quaternion defaultRotation;
 
     void Awake()
     {
         defaultRotation = transform.rotation;
+
+        if (periscopeCamera == null)
+        {
+            periscopeCamera = GetComponentInChildren<Camera>();
+        }
     }
 
     void LateUpdate()
@@ -105,5 +116,50 @@ public class SpatulaPeriscope : MonoBehaviour
 
         Quaternion targetRotation = Quaternion.LookRotation(lookDirection.normalized, Vector3.up);
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, trackingRotateSpeed * Time.deltaTime);
+    }
+
+    void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireCube(boundingBox.center, boundingBox.size);
+
+        DrawCameraFrustumGizmo();
+
+        if (spatulaController != null)
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(transform.position, spatulaController.transform.position);
+        }
+
+        if (trackedPancake != null)
+        {
+            Gizmos.color = Color.green;
+            Gizmos.DrawLine(transform.position, trackedPancake.transform.position);
+        }        
+    }
+
+    void DrawCameraFrustumGizmo()
+    {
+        if (!drawFovGizmo)
+        {
+            return;
+        }
+
+        Camera gizmoCamera = periscopeCamera != null ? periscopeCamera : GetComponentInChildren<Camera>();
+        if (gizmoCamera == null)
+        {
+            return;
+        }
+
+        Matrix4x4 previousMatrix = Gizmos.matrix;
+        Gizmos.color = new Color(1f, 0.5f, 0f, 0.9f);
+        Gizmos.matrix = Matrix4x4.TRS(gizmoCamera.transform.position, gizmoCamera.transform.rotation, Vector3.one);
+        Gizmos.DrawFrustum(
+            Vector3.zero,
+            gizmoCamera.fieldOfView,
+            gizmoCamera.farClipPlane,
+            gizmoCamera.nearClipPlane,
+            gizmoCamera.aspect);
+        Gizmos.matrix = previousMatrix;
     }
 }
