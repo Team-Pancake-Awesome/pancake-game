@@ -5,7 +5,7 @@ public class FlamePot : MonoBehaviour
 {
     private const float BurntCookThreshold = 0.92f;
 
-    public SpatulaController spatulaController;
+    //public SpatulaController spatulaController;
     public ParticleSystem flame;
 
     [Header("emission")]
@@ -63,7 +63,7 @@ public class FlamePot : MonoBehaviour
 
     void Update()
     {
-        float t = spatulaController != null ? Mathf.Clamp01(spatulaController.PotValue) : 0f;
+        float t = currentHeat01;
 
         UpdateBurningMusicState();
 

@@ -30,6 +30,7 @@ public class BurnerZoneController : MonoBehaviour
 
         if (activeBurner != null && Mathf.Abs(potDelta) >= potDeltaDeadzone)
         {
+            Debug.Log($"APPLY {potDelta:0.000} to {activeBurner.name}");
             activeBurner.AddHeatDelta(potDelta * knobSensitivity);
         }
 
@@ -39,11 +40,10 @@ public class BurnerZoneController : MonoBehaviour
     public void SetActiveBurner(FlamePot burner)
     {
         activeBurner = burner;
-
         if (spatulaController != null)
-        {
             lastPotValue = Mathf.Clamp01(spatulaController.PotValue);
-        }
+
+        Debug.Log($"ACTIVE burner = {(burner != null ? burner.name : "null")}");
     }
 
     public void ClearActiveBurner(FlamePot burner)
@@ -51,6 +51,8 @@ public class BurnerZoneController : MonoBehaviour
         if (activeBurner == burner)
         {
             activeBurner = null;
+            Debug.Log("ACTIVE burner cleared");
         }
+        
     }
 }
