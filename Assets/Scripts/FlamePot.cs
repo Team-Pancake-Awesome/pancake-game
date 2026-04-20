@@ -131,34 +131,41 @@ public class FlamePot : MonoBehaviour
 
     void UpdatePancakeVisuals()
     {
-        if (!PancakeRegistry.TryGetInstance(out PancakeRegistry registry))
-        {
-            return;
-        }
 
-        IReadOnlyList<PancakeController> pancakes = registry.Pancakes;
-        for (int i = 0; i < pancakes.Count; i++)
-        {
-            PancakeController pancake = pancakes[i];
-            if (pancake == null)
-            {
-                continue;
-            }
+        
+   
+        // Pancake visuals are now owned by PancakeController.
+        // FlamePot should only be responsible for applying heat.
+            
 
-            Renderer meshRenderer = pancake.GetComponentInChildren<Renderer>();
-            if (meshRenderer == null)
-            {
-                continue;
-            }
+        // if (!PancakeRegistry.TryGetInstance(out PancakeRegistry registry))
+        // {
+        //     return;
+        // }
 
-            float cooked01 = Mathf.Clamp01(pancake.AverageCookAmount);
-            Color cookedColor = Color.Lerp(uncookedColor, burntColor, cooked01);
+        // IReadOnlyList<PancakeController> pancakes = registry.Pancakes;
+        // for (int i = 0; i < pancakes.Count; i++)
+        // {
+        //     PancakeController pancake = pancakes[i];
+        //     if (pancake == null)
+        //     {
+        //         continue;
+        //     }
 
-            meshRenderer.GetPropertyBlock(materialPropertyBlock);
-            materialPropertyBlock.SetColor(BaseColorId, cookedColor);
-            materialPropertyBlock.SetColor(ColorId, cookedColor);
-            meshRenderer.SetPropertyBlock(materialPropertyBlock);
-        }
+        //     Renderer meshRenderer = pancake.GetComponentInChildren<Renderer>();
+        //     if (meshRenderer == null)
+        //     {
+        //         continue;
+        //     }
+
+        //     float cooked01 = Mathf.Clamp01(pancake.AverageCookAmount);
+        //     Color cookedColor = Color.Lerp(uncookedColor, burntColor, cooked01);
+
+        //     meshRenderer.GetPropertyBlock(materialPropertyBlock);
+        //     materialPropertyBlock.SetColor(BaseColorId, cookedColor);
+        //     materialPropertyBlock.SetColor(ColorId, cookedColor);
+        //     meshRenderer.SetPropertyBlock(materialPropertyBlock);
+        // }
     }
 
     Vector3 GetHeatCenter()

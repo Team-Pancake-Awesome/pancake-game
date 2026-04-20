@@ -51,6 +51,7 @@ public class PancakeStats
     [Min(0)]
     public int flipCount = 0;
 
+    [Tooltip("True = top face is currently pointing upward.")]
     public bool topSideUp = true;
 
     [Header("Toppings")]
@@ -63,25 +64,51 @@ public class PancakeStats
 
     public PancakeDoneness Doneness
     {
-        get { return EvaluateDoneness(AverageCookAmount); }
+        get
+        {
+            float averageCook = AverageCookAmount;
+
+            if (averageCook < 0.2f)
+            {
+                return PancakeDoneness.Raw;
+            }
+
+            if (averageCook < 0.45f)
+            {
+                return PancakeDoneness.Undercooked;
+            }
+
+            if (averageCook < 0.7f)
+            {
+                return PancakeDoneness.Golden;
+            }
+
+            if (averageCook < 0.92f)
+            {
+                return PancakeDoneness.WellDone;
+            }
+
+            return PancakeDoneness.Burnt;
+        }
     }
 
     public void ApplyHeat(float heatIntensity, float deltaTime)
     {
         float appliedHeat = Mathf.Max(0f, heatIntensity) * Mathf.Max(0f, deltaTime);
 
+        // The downward-facing side gets heated by the burner.
         if (topSideUp)
         {
-            topCookAmount = Mathf.Clamp01(topCookAmount + appliedHeat);
+            bottomCookAmount = Mathf.Clamp01(bottomCookAmount + appliedHeat);
         }
         else
         {
-            bottomCookAmount = Mathf.Clamp01(bottomCookAmount + appliedHeat);
+            topCookAmount = Mathf.Clamp01(topCookAmount + appliedHeat);
         }
 
         moisture = Mathf.Clamp01(moisture - appliedHeat * 0.35f);
 
-        if (AverageCookAmount > 0.95f)
+        if ((topCookAmount + bottomCookAmount) * 0.5f > 0.95f)
         {
             qualityScore = Mathf.Max(0f, qualityScore - (appliedHeat * 70f));
         }
@@ -91,6 +118,22 @@ public class PancakeStats
     {
         topSideUp = !topSideUp;
         flipCount += 1;
+    }
+
+    public void SetTopSideUp(bool isTopSideUp, bool countAsFlip = false)
+    {
+        bool changed = topSideUp != isTopSideUp;
+        topSideUp = isTopSideUp;
+
+        if (changed && countAsFlip)
+        {
+            flipCount += 1;
+        }
+    }
+
+    public void ResolveSuccessfulSideSwap()
+    {
+        SetTopSideUp(!topSideUp, true);
     }
 
     public PancakeTopping AddTopping(PancakeToppingType type, float amount = 1f, float coverage = 0.25f, string customName = "")
@@ -103,7 +146,7 @@ public class PancakeStats
             return existing;
         }
 
-        PancakeTopping topping = new()
+        PancakeTopping topping = new PancakeTopping
         {
             type = type,
             customName = customName,
@@ -162,30 +205,5 @@ public class PancakeStats
         {
             toppings.Clear();
         }
-    }
-
-    private static PancakeDoneness EvaluateDoneness(float cookAmount)
-    {
-        if (cookAmount < 0.2f)
-        {
-            return PancakeDoneness.Raw;
-        }
-
-        if (cookAmount < 0.45f)
-        {
-            return PancakeDoneness.Undercooked;
-        }
-
-        if (cookAmount < 0.7f)
-        {
-            return PancakeDoneness.Golden;
-        }
-
-        if (cookAmount < 0.92f)
-        {
-            return PancakeDoneness.WellDone;
-        }
-
-        return PancakeDoneness.Burnt;
     }
 }

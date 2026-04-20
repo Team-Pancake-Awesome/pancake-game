@@ -4,6 +4,8 @@ using System.Collections;
 public class PancakeController : MonoBehaviour
 {
     private const float BurntCookThreshold = 0.92f;
+    private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+    private static readonly int ColorId = Shader.PropertyToID("_Color");
 
     public Rigidbody rb;
 
@@ -37,6 +39,26 @@ public class PancakeController : MonoBehaviour
     public float baseTorque = 100f;
     public float torqueMultiplier = 150f;
 
+    [Header("Flip Outcome")]
+    [Tooltip("When true, a valid launched flip will resolve to the opposite side on landing")]
+    public bool successfulFlipAlwaysSwapsSides = true;
+
+    [Header("Side Visuals")]
+    [Tooltip("Optional visual root that should face upward when the pancake's top side is up")]
+    public Transform pancakeVisualRoot;
+    [Tooltip("Optional child that represents the pancake's top face")]
+    public Renderer topFaceRenderer;
+    [Tooltip("Optional child that represents the pancake's bottom face")]
+    public Renderer bottomFaceRenderer;
+    [Tooltip("Optional renderer for the pancake body/side wall")]
+    public Renderer bodyRenderer;
+    [Tooltip("How quickly the visual root settles to the resolved side after landing")]
+    public float sideVisualSnapDuration = 0.08f;
+
+    [Header("Cook Visuals")]
+    public Color uncookedColor = new(1f, 0.9f, 0.75f, 1f);
+    public Color burntColor = new(0.22f, 0.12f, 0.06f, 1f);
+
     [Header("Testing")]
     public Transform spawnPoint;
     public KeyCode resetKey = KeyCode.R;
@@ -48,14 +70,31 @@ public class PancakeController : MonoBehaviour
     public bool IsScooped { get; private set; } 
     public bool IsAirborne => airborne;
     private bool airborne = false;
+    private bool pendingSuccessfulFlip = false;
     private float lastLaunchTime = -999f;
     private float lastScoopTime = -999f;
     private Vector3 offCenterOffset;
     private Vector3 scoopedLocalOffset;
     private bool hasScoopedLocalOffset = false;
+    private Quaternion scoopedRotation;
     private float scoopedWorldZ;
     private Coroutine scoopMoveRoutine;
     private PancakeSpawner spawner;
+    private MaterialPropertyBlock materialPropertyBlock;
+    private Coroutine sideVisualRoutine;
+
+    void Awake()
+    {
+        if (rb == null)
+        {
+            rb = GetComponent<Rigidbody>();
+        }
+
+        materialPropertyBlock = new MaterialPropertyBlock();
+
+        SyncSideVisuals();
+        UpdateCookVisuals();
+    }
 
     void OnEnable()
     {
@@ -71,6 +110,8 @@ public class PancakeController : MonoBehaviour
         }
 
         PancakeRegistry.Instance.Register(this);
+        SyncSideVisuals();
+        UpdateCookVisuals();
     }
 
     void OnDisable()
@@ -154,6 +195,7 @@ public class PancakeController : MonoBehaviour
         {
             StopScoopMoveRoutine();
             IsScooped = false;
+            pendingSuccessfulFlip = false;
             rb.isKinematic = false; // Turn gravity back on
             Debug.Log("Pancake Dropped.");
         }
@@ -187,7 +229,10 @@ public class PancakeController : MonoBehaviour
         rb.AddForce((Vector3.up * upForce) + sloppyForce, ForceMode.Impulse);
         rb.AddTorque(Vector3.right * appliedTorque, ForceMode.Impulse);
 
-        stats?.RegisterFlip();
+        // Phase 1 rule:
+        // keep the chaotic visual motion, but resolve the gameplay side swap on landing.
+        pendingSuccessfulFlip = successfulFlipAlwaysSwapsSides;
+
         SoundManager.Instance.PlayFromCue(SoundCues.FlipPancake, transform.position);
         
         Debug.Log($"SUCCESSFUL LAUNCH! UpForce: {upForce:F2} | SloppyForce: {sloppyForce.magnitude:F2}");
@@ -202,6 +247,7 @@ public class PancakeController : MonoBehaviour
         }
 
         stats.ApplyHeat(heatIntensity, Time.deltaTime);
+        UpdateCookVisuals();
 
         if (IsPancakeRuined())
         {
@@ -237,9 +283,12 @@ public class PancakeController : MonoBehaviour
         StopScoopMoveRoutine();
         airborne = false;
         IsScooped = false;
+        pendingSuccessfulFlip = false;
         lastScoopTime = -999f;
         if (rb != null) rb.isKinematic = false;
         stats?.ResetForNewRound(!clearToppingsOnReset);
+        SyncSideVisuals();
+        UpdateCookVisuals();
 
         if (clearToppingsOnReset)
         {
@@ -315,7 +364,6 @@ public class PancakeController : MonoBehaviour
         float duration = Mathf.Max(0.0001f, scoopMoveDuration);
         float elapsed = 0f;
 
-
         while (elapsed < duration && IsScooped && spatula != null)
         {
             elapsed += Time.deltaTime;
@@ -323,14 +371,12 @@ public class PancakeController : MonoBehaviour
             float easedT = Mathf.SmoothStep(0f, 1f, t);
 
             Vector3 targetPos = GetScoopTargetPosition(spatula);
-            Quaternion targetRot = spatula.rotation * Quaternion.Euler(scoopRotationOffsetEuler);
+            Quaternion targetRot = GetScoopedRotation(spatula);
 
             Vector3 syncedPos = Vector3.Lerp(startPos, targetPos, easedT);
+            Quaternion syncedRot = Quaternion.Slerp(startRot, targetRot, easedT);
 
-            transform.SetPositionAndRotation(
-                syncedPos,
-                Quaternion.Slerp(startRot, targetRot, easedT)
-            );
+            transform.SetPositionAndRotation(syncedPos, syncedRot);
 
             yield return null;
         }
@@ -340,7 +386,7 @@ public class PancakeController : MonoBehaviour
             while (IsScooped && spatula != null)
             {
                 Vector3 targetPos = GetScoopTargetPosition(spatula);
-                Quaternion targetRot = spatula.rotation * Quaternion.Euler(scoopRotationOffsetEuler);
+                Quaternion targetRot = GetScoopedRotation(spatula);
 
                 transform.SetPositionAndRotation(targetPos, targetRot);
                 yield return null;
@@ -349,14 +395,12 @@ public class PancakeController : MonoBehaviour
 
         scoopMoveRoutine = null;
     }
-    
+
     void OnCollisionEnter(Collision collision)
     {
         if (airborne && Time.time - lastLaunchTime > launchGracePeriod)
         {
-            airborne = false;
-            SoundManager.Instance.PlayFromCue(SoundCues.PancakeLand, transform.position);
-            Debug.Log("Pancake Landed! Ready to scoop.");
+            ResolveLanding();
         }
     }
 
@@ -364,9 +408,96 @@ public class PancakeController : MonoBehaviour
     {
         if (airborne && Time.time - lastLaunchTime > launchGracePeriod)
         {
-            airborne = false;
+            ResolveLanding();
             Debug.Log("Pancake Failsafe: Reset airborne to false while resting.");
         }
+    }
+
+    void ResolveLanding()
+    {
+        airborne = false;
+
+        if (pendingSuccessfulFlip && stats != null)
+        {
+            stats.ResolveSuccessfulSideSwap();
+            pendingSuccessfulFlip = false;
+            SyncSideVisuals();
+            UpdateCookVisuals();
+            SoundManager.Instance.PlayFromCue(SoundCues.PancakeLand, transform.position);
+            Debug.Log($"Pancake Landed! Flip resolved. TopSideUp: {stats.topSideUp}");
+        }
+        else
+        {
+            pendingSuccessfulFlip = false;
+            SoundManager.Instance.PlayFromCue(SoundCues.PancakeLand, transform.position);
+            Debug.Log("Pancake Landed! Ready to scoop.");
+        }
+    }
+
+    void SyncSideVisuals()
+    {
+        if (stats == null)
+        {
+            return;
+        }
+
+        if (topFaceRenderer != null)
+        {
+            topFaceRenderer.gameObject.SetActive(true);
+        }
+
+        if (bottomFaceRenderer != null)
+        {
+            bottomFaceRenderer.gameObject.SetActive(true);
+        }
+
+        if (pancakeVisualRoot == null)
+        {
+            return;
+        }
+
+        Quaternion targetRotation = stats.topSideUp
+            ? Quaternion.identity
+            : Quaternion.Euler(180f, 0f, 0f);
+
+        if (sideVisualRoutine != null)
+        {
+            StopCoroutine(sideVisualRoutine);
+        }
+
+        sideVisualRoutine = StartCoroutine(SmoothSetSideVisualRotation(targetRotation));
+    }
+
+    void UpdateCookVisuals()
+    {
+        if (stats == null)
+        {
+            return;
+        }
+
+        UpdateRendererCookColor(topFaceRenderer, stats.topCookAmount);
+        UpdateRendererCookColor(bottomFaceRenderer, stats.bottomCookAmount);
+        UpdateRendererCookColor(bodyRenderer, stats.AverageCookAmount);
+    }
+
+    void UpdateRendererCookColor(Renderer targetRenderer, float cookAmount)
+    {
+        if (targetRenderer == null)
+        {
+            return;
+        }
+
+        if (materialPropertyBlock == null)
+        {
+            materialPropertyBlock = new MaterialPropertyBlock();
+        }
+
+        Color cookedColor = Color.Lerp(uncookedColor, burntColor, Mathf.Clamp01(cookAmount));
+
+        targetRenderer.GetPropertyBlock(materialPropertyBlock);
+        materialPropertyBlock.SetColor(BaseColorId, cookedColor);
+        materialPropertyBlock.SetColor(ColorId, cookedColor);
+        targetRenderer.SetPropertyBlock(materialPropertyBlock);
     }
 
     bool IsPancakeRuined()
@@ -378,5 +509,44 @@ public class PancakeController : MonoBehaviour
 
         return stats.topCookAmount >= BurntCookThreshold ||
                stats.bottomCookAmount >= BurntCookThreshold;
+    }
+
+    
+    Quaternion GetScoopedRotation(Transform spatula)
+    {
+        Quaternion spatulaRotation = spatula.rotation * Quaternion.Euler(scoopRotationOffsetEuler);
+
+        if (stats == null)
+        {
+            return spatulaRotation;
+        }
+
+        // Keep the pancake flat on the spatula, but preserve which side is up.
+        return stats.topSideUp
+            ? spatulaRotation
+            : spatulaRotation * Quaternion.Euler(180f, 0f, 0f);
+    }
+    IEnumerator SmoothSetSideVisualRotation(Quaternion targetLocalRotation)
+    {
+        Quaternion startRotation = pancakeVisualRoot.localRotation;
+        float duration = Mathf.Max(0.0001f, sideVisualSnapDuration);
+        float elapsed = 0f;
+
+        while (elapsed < duration && pancakeVisualRoot != null)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            float easedT = Mathf.SmoothStep(0f, 1f, t);
+
+            pancakeVisualRoot.localRotation = Quaternion.Slerp(startRotation, targetLocalRotation, easedT);
+            yield return null;
+        }
+
+        if (pancakeVisualRoot != null)
+        {
+            pancakeVisualRoot.localRotation = targetLocalRotation;
+        }
+
+        sideVisualRoutine = null;
     }
 }

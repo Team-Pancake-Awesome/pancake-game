@@ -17,13 +17,25 @@
 Adafruit_MPU6050 mpu;
 
 
-// --- Pins ---
-const int potPin = A7;
-const int buttonPin = 12;
-const int actionButtonPin = 11;
+
+
+//  Rotary Encoder Pins 
+const int clkPin = 7;  // Interrupt pin
+const int dtPin = 8;   
+
+//  Buttons
+const int buttonPin = 10;       // Encoder SW pin (Now acts as Arm/Disarm)
+const int actionButtonPin = 2;  // Thumb flipper button
 const int ledPin = LED_BUILTIN; 
 
-// --- Tuning Variables ---
+// ENCODER VIRTUAL POTENTIOMETER 
+
+volatile int virtualPot = 0; 
+int encoderStep = 250; // Adjust higher/lower to change how fast the flame turns up
+volatile unsigned long lastInterruptTime = 0;
+
+
+// Tuning Variables
 float pitchOffset = 0.0f;
 float rollOffset = 0.0f;
 bool invertRoll = false;
@@ -31,7 +43,7 @@ float pitchDeadzone = 4.0f;
 float rollDeadzone = 4.0f;
 bool enableDebugSerial = true;
 
-// --- State Variables ---
+//State Variables
 bool hidActive = false;
 bool wasDisarmed = false;
 bool lastButtonState = HIGH;
@@ -41,36 +53,56 @@ bool longHoldHandled = false;
 const unsigned long armHoldMs = 250;
 const unsigned long disarmHoldMs = 1500;
 
-// --- HYBRID MATH FIX ---
+
 // Left Stick (Spatula X/Y) expects Unsigned 0-255
 const uint8_t hidLeftCenter = 127;
 const uint8_t hidLeftMin = 0;
 const uint8_t hidLeftMax = 255;
-
 // Right Stick (Pot Z/RZ) expects Signed -127 to 127
 const int8_t hidRightCenter = 0;
 const int8_t hidRightMin = -127;
 const int8_t hidRightMax = 127;
 
+
+// Interrupt
+void updateEncoder() {
+  unsigned long interruptTime = millis();
+  
+  //  mechanical bounce. Ignore it interrupts faster than 5 milliseconds,
+  if (interruptTime - lastInterruptTime > 5) {
+    
+    if (digitalRead(dtPin) != digitalRead(clkPin)) {
+      virtualPot += encoderStep;
+    } else {
+      virtualPot -= encoderStep;
+    }
+    
+    virtualPot = constrain(virtualPot, 0, 4095);
+  }
+  
+  lastInterruptTime = interruptTime;
+}
+
 void setup() {
   Serial.begin(115200);
-  Wire.begin(); 
+  Wire.begin();
+
   #if USE_BLUETOOTH
-    // 1. Create a custom configuration
+    //  Create a custom configuration
     BleGamepadConfiguration bleConfig;
+
+    // set inputs
+    bleConfig.setButtonCount(1); // We only have 1 button
+    bleConfig.setHatSwitchCount(0); // No D-Pads
     
-    // 2. Put the controller on a diet
-    bleConfig.setButtonCount(1);      // We only have 1 button
-    bleConfig.setHatSwitchCount(0);   // No D-Pads
-    
-    // 3. Turn off unused axes
+    // Turn off unused 
     bleConfig.setIncludeRxAxis(false);
     bleConfig.setIncludeRyAxis(false);
     bleConfig.setIncludeSlider1(false);
     bleConfig.setIncludeSlider2(false);
     // (Note: We leave X, Y, Z, and Rz as 'true' because Left/Right stick use those!)
 
-    // 4. Start the gamepad with our new diet configuration
+    // Start the gamepad 
     Gamepad.begin(&bleConfig);
     Serial.println("Starting in BLUETOOTH Mode...");
   #else
@@ -79,11 +111,16 @@ void setup() {
     Serial.println("Starting in USB Mode...");
   #endif
 
-  pinMode(potPin, INPUT);
+  // Initialize Pins 
+  pinMode(clkPin, INPUT_PULLUP);
+  pinMode(dtPin, INPUT_PULLUP);
   pinMode(buttonPin, INPUT_PULLUP);
   pinMode(actionButtonPin, INPUT_PULLUP);
   pinMode(ledPin, OUTPUT);
   digitalWrite(ledPin, LOW); 
+
+  // attach rncoder interrupt to pin
+  attachInterrupt(digitalPinToInterrupt(clkPin), updateEncoder, FALLING);
 
   if (!mpu.begin()) {
     Serial.println("Failed to find MPU6050 chip");
@@ -95,6 +132,7 @@ void setup() {
 
 void loop() {
   int buttonState = digitalRead(buttonPin);
+
   if (buttonState == LOW && lastButtonState == HIGH) {
     buttonPressStartTime = millis();
     longHoldHandled = false;
@@ -102,10 +140,11 @@ void loop() {
   
   if (buttonState == LOW && !longHoldHandled) {
     unsigned long pressDuration = millis() - buttonPressStartTime;
+    
     if (hidActive && pressDuration >= disarmHoldMs) {
       hidActive = false;
       longHoldHandled = true;
-      digitalWrite(ledPin, LOW); 
+      digitalWrite(ledPin, LOW);
       Serial.println("HID Disarmed");
     } 
     else if (!hidActive && pressDuration >= armHoldMs) {
@@ -120,7 +159,7 @@ void loop() {
   if (!hidActive) {
     if (!wasDisarmed) {
       sendNeutralState(); 
-      wasDisarmed = true; 
+      wasDisarmed = true;
     }
     delay(10); 
     return;
@@ -133,7 +172,9 @@ void loop() {
      return; 
   }
 
-  int potRaw = readSmoothPotRaw(potPin);
+  // Read the simulated potentiometer value
+  int potRaw = virtualPot; 
+  
   float pitch = calculatePitch(a.acceleration.x, a.acceleration.y, a.acceleration.z) - pitchOffset;
   float roll  = calculateRoll(a.acceleration.x, a.acceleration.y, a.acceleration.z) - rollOffset;
 
@@ -198,14 +239,6 @@ float calculatePitch(float ax, float ay, float az) {
 
 float calculateRoll(float ax, float ay, float az) {
   return atan2(-ax, az) * 180.0 / PI;
-}
-
-int readSmoothPotRaw(int pin) {
-  long total = 0;
-  for (int i = 0; i < 5; i++) {
-    total += analogRead(pin);
-  }
-  return total / 5;
 }
 
 float applyAngleDeadzone(float angle, float deadzone) {
