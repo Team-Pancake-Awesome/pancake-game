@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System;
 
 public class UIManager : MonoBehaviour
 {
@@ -13,6 +14,10 @@ public class UIManager : MonoBehaviour
     public GameObject endOfDayUI;
     public GameObject debugMenu;
     public GameObject pauseMenu;
+    public GameObject HappyPancake;
+    public GameObject MidPancake;
+    public GameObject BurntPancake;
+    public GameObject receipt;
     
     public string mainMenu;
     public string gameSceneName;
@@ -32,7 +37,7 @@ public class UIManager : MonoBehaviour
             if(GameIsPaused == true && endOfDayUI.activeInHierarchy == false)
             {
                 Resume();
-            } else if(endOfDayUI.activeInHierarchy == true)
+            } else if(UIOpen == true)
             {
                 
             } else
@@ -54,6 +59,8 @@ public class UIManager : MonoBehaviour
         {
             Restart();
         }
+        WorkdayManager.Instance.EndWorkday();
+        //subscribe to ondayended event in workday manager in order to make the end of day ui open
     }
 
     public void Resume()
@@ -113,4 +120,26 @@ public class UIManager : MonoBehaviour
     {
         debugMenu.SetActive(false);
     }
+
+    void OpenEndOfDay()
+    {
+        endOfDayUI.SetActive(true);
+        UIOpen = true;
+        Time.timeScale = 0f;
+        GameIsPaused = true;
+    }
+
+    /*void SetActivePancakeCharacter()
+    {
+        if (PancakeDoneness || PancakeDoneness )
+        {
+            BurntPancake.SetActive(true);
+        } else if (PancakeDoneness || PancakeDoneness)
+        {
+            MidPancake.SetActive(true);
+        } else
+        {
+            HappyPancake.SetActive(true);
+        }
+    }*/
 }
