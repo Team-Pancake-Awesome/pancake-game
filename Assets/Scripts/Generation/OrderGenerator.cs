@@ -82,7 +82,7 @@ public class OrderGenerator
 
         if (guest == null || guest.preferredToppings.Count == 0)
         {
-            destination.Add(PancakeToppingType.Butter);
+            destination.Add(PancakeToppingType.Blueberries);
             return;
         }
 
