@@ -5,7 +5,7 @@ using UnityEngine;
 public class ToppingController : MonoBehaviour
 {
 	[Header("Topping Data")]
-	public PancakeToppingType toppingType = PancakeToppingType.Butter;
+	public PancakeToppingType toppingType = PancakeToppingType.Blueberries;
 	[Min(0f)]
 	public float amount = 1f;
 	[Range(0f, 1f)]
