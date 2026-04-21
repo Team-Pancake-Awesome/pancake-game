@@ -52,8 +52,12 @@ public class PancakeController : MonoBehaviour
     public Renderer bottomFaceRenderer;
     [Tooltip("Optional renderer for the pancake body/side wall")]
     public Renderer bodyRenderer;
-    [Tooltip("How quickly the visual root settles to the resolved side after landing")]
-    public float sideVisualSnapDuration = 0.08f;
+
+    [Header("Landing Side Swap Presentation")]
+    [Tooltip("How high the pancake visual hops when a successful landing resolves a side swap")]
+    public float landingSideSwapBounceHeight = 0.04f;
+    [Tooltip("How long the landing side swap bounce lasts")]
+    public float landingSideSwapBounceDuration = 0.18f;
 
     [Header("Cook Visuals")]
     public Color uncookedColor = new(1f, 0.9f, 0.75f, 1f);
@@ -76,12 +80,11 @@ public class PancakeController : MonoBehaviour
     private Vector3 offCenterOffset;
     private Vector3 scoopedLocalOffset;
     private bool hasScoopedLocalOffset = false;
-    private Quaternion scoopedRotation;
     private float scoopedWorldZ;
     private Coroutine scoopMoveRoutine;
+    private Coroutine landingSideSwapRoutine;
     private PancakeSpawner spawner;
     private MaterialPropertyBlock materialPropertyBlock;
-    private Coroutine sideVisualRoutine;
 
     void Awake()
     {
@@ -162,6 +165,15 @@ public class PancakeController : MonoBehaviour
 
         if (distance > maxFlipDistance) return false;
 
+        if (landingSideSwapRoutine != null)
+        {
+            StopCoroutine(landingSideSwapRoutine);
+            landingSideSwapRoutine = null;
+        }
+
+        // Make sure the visual root is back in a valid side state before scooping.
+        SyncSideVisuals();
+
         IsScooped = true;
         rb.isKinematic = true; 
         timeScooped = Time.time; // flip delay timer
@@ -197,6 +209,7 @@ public class PancakeController : MonoBehaviour
             IsScooped = false;
             pendingSuccessfulFlip = false;
             rb.isKinematic = false; // Turn gravity back on
+            SyncSideVisuals();
             Debug.Log("Pancake Dropped.");
         }
     }
@@ -204,7 +217,6 @@ public class PancakeController : MonoBehaviour
     // Called by the SpatulaController when a valid swipe/flick is detected
     public bool LaunchFlip(float strength)
     {
-        
         if (!IsScooped || (Time.time - timeScooped <= scoopGracePeriod)) return false;
 
         StopScoopMoveRoutine();
@@ -281,6 +293,13 @@ public class PancakeController : MonoBehaviour
     public void ResetPancake()
     {
         StopScoopMoveRoutine();
+
+        if (landingSideSwapRoutine != null)
+        {
+            StopCoroutine(landingSideSwapRoutine);
+            landingSideSwapRoutine = null;
+        }
+
         airborne = false;
         IsScooped = false;
         pendingSuccessfulFlip = false;
@@ -398,19 +417,55 @@ public class PancakeController : MonoBehaviour
 
     void OnCollisionEnter(Collision collision)
     {
-        if (airborne && Time.time - lastLaunchTime > launchGracePeriod)
+        if (!airborne || Time.time - lastLaunchTime <= launchGracePeriod)
         {
-            ResolveLanding();
+            return;
         }
+
+        if (!IsLandingSurface(collision))
+        {
+            return;
+        }
+
+        ResolveLanding();
     }
 
-    void OnCollisionStay(Collision collision)
+   void OnCollisionStay(Collision collision)
     {
-        if (airborne && Time.time - lastLaunchTime > launchGracePeriod)
+        if (!airborne || Time.time - lastLaunchTime <= launchGracePeriod)
         {
-            ResolveLanding();
-            Debug.Log("Pancake Failsafe: Reset airborne to false while resting.");
+            return;
         }
+
+        if (!IsLandingSurface(collision))
+        {
+            return;
+        }
+
+        ResolveLanding();
+        Debug.Log("Pancake Failsafe: Reset airborne to false while resting.");
+    }
+
+    bool IsLandingSurface(Collision collision)
+    {
+        if (collision == null || collision.contactCount == 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < collision.contactCount; i++)
+        {
+            ContactPoint contact = collision.GetContact(i);
+
+            // We only want surfaces that are basically "under" the pancake.
+            // If the normal points upward enough, this is a landing-style contact.
+            if (contact.normal.y > 0.6f)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     void ResolveLanding()
@@ -421,7 +476,9 @@ public class PancakeController : MonoBehaviour
         {
             stats.ResolveSuccessfulSideSwap();
             pendingSuccessfulFlip = false;
-            SyncSideVisuals();
+
+            PlayLandingSideSwapPresentation();
+
             UpdateCookVisuals();
             SoundManager.Instance.PlayFromCue(SoundCues.PancakeLand, transform.position);
             Debug.Log($"Pancake Landed! Flip resolved. TopSideUp: {stats.topSideUp}");
@@ -429,9 +486,29 @@ public class PancakeController : MonoBehaviour
         else
         {
             pendingSuccessfulFlip = false;
+            SyncSideVisuals();
             SoundManager.Instance.PlayFromCue(SoundCues.PancakeLand, transform.position);
             Debug.Log("Pancake Landed! Ready to scoop.");
         }
+    }
+
+    void PlayLandingSideSwapPresentation()
+    {
+        if (pancakeVisualRoot == null)
+        {
+            Debug.LogWarning("Landing side swap presentation skipped: pancakeVisualRoot is null.");
+            SyncSideVisuals();
+            return;
+        }
+
+        Debug.Log("Starting landing side swap bounce.");
+
+        if (landingSideSwapRoutine != null)
+        {
+            StopCoroutine(landingSideSwapRoutine);
+        }
+
+        landingSideSwapRoutine = StartCoroutine(PlayLandingSideSwapBounce());
     }
 
     void SyncSideVisuals()
@@ -451,21 +528,11 @@ public class PancakeController : MonoBehaviour
             bottomFaceRenderer.gameObject.SetActive(true);
         }
 
-        if (pancakeVisualRoot == null)
+        if (pancakeVisualRoot != null)
         {
-            return;
+            pancakeVisualRoot.localPosition = Vector3.zero;
+            pancakeVisualRoot.localRotation = Quaternion.Euler(stats.topSideUp ? 0f : 180f, 0f, 0f);
         }
-
-        Quaternion targetRotation = stats.topSideUp
-            ? Quaternion.identity
-            : Quaternion.Euler(180f, 0f, 0f);
-
-        if (sideVisualRoutine != null)
-        {
-            StopCoroutine(sideVisualRoutine);
-        }
-
-        sideVisualRoutine = StartCoroutine(SmoothSetSideVisualRotation(targetRotation));
     }
 
     void UpdateCookVisuals()
@@ -511,42 +578,150 @@ public class PancakeController : MonoBehaviour
                stats.bottomCookAmount >= BurntCookThreshold;
     }
 
-    
     Quaternion GetScoopedRotation(Transform spatula)
     {
-        Quaternion spatulaRotation = spatula.rotation * Quaternion.Euler(scoopRotationOffsetEuler);
+        return spatula.rotation * Quaternion.Euler(scoopRotationOffsetEuler);
+    }
 
-        if (stats == null)
+    float NormalizeSignedAngle(float angle)
+    {
+        angle %= 360f;
+
+        if (angle > 180f)
         {
-            return spatulaRotation;
+            angle -= 360f;
         }
 
-        // Keep the pancake flat on the spatula, but preserve which side is up.
-        return stats.topSideUp
-            ? spatulaRotation
-            : spatulaRotation * Quaternion.Euler(180f, 0f, 0f);
+        return angle;
     }
-    IEnumerator SmoothSetSideVisualRotation(Quaternion targetLocalRotation)
+    
+
+    private IEnumerator PlayLandingSideSwapBounce()
     {
-        Quaternion startRotation = pancakeVisualRoot.localRotation;
-        float duration = Mathf.Max(0.0001f, sideVisualSnapDuration);
+        if (pancakeVisualRoot == null)
+        {
+            Debug.LogWarning("Landing side swap skipped: pancakeVisualRoot is null.");
+            yield break;
+        }
+
+        Vector3 baseLocalPosition = Vector3.zero;
+        
+        // 1. Determine Rotations
+        // The stats have already resolved, so topSideUp is currently our TARGET state.
+        float targetX = stats.topSideUp ? 0f : 180f;
+        
+        // By forcing startX to be exactly targetX - 180, we guarantee a continuous 
+        // 180-degree rotation in the same direction every time, avoiding Quaternion shortest-path weirdness.
+        float startX = targetX - 180f; 
+
+        float duration = Mathf.Max(0.0001f, landingSideSwapBounceDuration);
         float elapsed = 0f;
+
+        Transform visualParent = pancakeVisualRoot.parent;
+        
+        // Calculate up-vector relative to the parent so the bounce doesn't skew if the pancake landed on a slope
+        Vector3 localWorldUp = visualParent != null
+            ? visualParent.InverseTransformDirection(Vector3.up).normalized
+            : Vector3.up;
 
         while (elapsed < duration && pancakeVisualRoot != null)
         {
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
-            float easedT = Mathf.SmoothStep(0f, 1f, t);
 
-            pancakeVisualRoot.localRotation = Quaternion.Slerp(startRotation, targetLocalRotation, easedT);
+            // --- The Hop ---
+            // Mathf.Sin creates a perfect 0 -> 1 -> 0 arc. Apex is at t = 0.5.
+            float bounceT = Mathf.Sin(t * Mathf.PI);
+            float yOffset = bounceT * landingSideSwapBounceHeight;
+
+            // --- The Turnover ---
+            // SmoothStep creates a buttery ease-in / ease-out curve.
+            // At exactly t = 0.5 (our vertical apex), rotationT will be exactly 0.5 (straight up).
+            float rotationT = Mathf.SmoothStep(0f, 1f, t);
+            float currentX = Mathf.Lerp(startX, targetX, rotationT);
+
+            pancakeVisualRoot.localPosition = baseLocalPosition + (localWorldUp * yOffset);
+            pancakeVisualRoot.localRotation = Quaternion.Euler(currentX, 0f, 0f);
+
             yield return null;
         }
 
+        // 3. Guarantee Clean End State
         if (pancakeVisualRoot != null)
         {
-            pancakeVisualRoot.localRotation = targetLocalRotation;
+            pancakeVisualRoot.localPosition = baseLocalPosition;
+            pancakeVisualRoot.localRotation = Quaternion.Euler(targetX, 0f, 0f);
         }
 
-        sideVisualRoutine = null;
+        landingSideSwapRoutine = null;
     }
+
+
+
+
+
+
+
+    // IEnumerator PlayLandingSideSwapBounce()
+    // {
+    //     Debug.Log("PlayLandingSideSwapBounce running.");
+    //     if (pancakeVisualRoot == null)
+    //     {
+    //         yield break;
+    //     }
+
+    //     Vector3 baseLocalPosition = Vector3.zero;
+
+    //     float startX = NormalizeSignedAngle(pancakeVisualRoot.localEulerAngles.x);
+    //     float targetX = stats != null && stats.topSideUp ? 0f : 180f;
+    //     float midX = 90f;
+
+    //     float duration = Mathf.Max(0.0001f, landingSideSwapBounceDuration);
+    //     float elapsed = 0f;
+
+    //     Transform visualParent = pancakeVisualRoot.parent;
+
+    //     // Convert world-up into the visual root parent's local space,
+    //     // so the bounce always reads as an upward pop instead of drifting in local axes.
+    //     Vector3 localWorldUp = visualParent != null
+    //         ? visualParent.InverseTransformDirection(Vector3.up).normalized
+    //         : Vector3.up;
+
+    //     while (elapsed < duration && pancakeVisualRoot != null)
+    //     {
+            
+    //         elapsed += Time.deltaTime;
+    //         float t = Mathf.Clamp01(elapsed / duration);
+
+    //         // Small hop arc: 0 -> 1 -> 0
+    //         float bounceT = Mathf.Sin(t * Mathf.PI);
+    //         float yOffset = bounceT * landingSideSwapBounceHeight;
+
+    //         float currentX;
+    //         Debug.Log($"Bounce t={t:F2} yOffset={yOffset:F3}");
+    //         if (t < 0.5f)
+    //         {
+    //             float riseT = Mathf.SmoothStep(0f, 1f, t / 0.5f);
+    //             currentX = Mathf.LerpAngle(startX, midX, riseT);
+    //         }
+    //         else
+    //         {
+    //             float fallT = Mathf.SmoothStep(0f, 1f, (t - 0.5f) / 0.5f);
+    //             currentX = Mathf.LerpAngle(midX, targetX, fallT);
+    //         }
+
+    //         pancakeVisualRoot.localPosition = baseLocalPosition + (localWorldUp * yOffset);
+    //         pancakeVisualRoot.localRotation = Quaternion.Euler(currentX, 0f, 0f);
+
+    //         yield return null;
+    //     }
+
+    //     if (pancakeVisualRoot != null)
+    //     {
+    //         pancakeVisualRoot.localPosition = baseLocalPosition;
+    //         pancakeVisualRoot.localRotation = Quaternion.Euler(targetX, 0f, 0f);
+    //     }
+
+    //     landingSideSwapRoutine = null;
+    // }
 }
