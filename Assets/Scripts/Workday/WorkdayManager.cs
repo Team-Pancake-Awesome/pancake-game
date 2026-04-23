@@ -128,7 +128,7 @@ public class WorkdayManager : DoNotDestroySingletonManager<WorkdayManager>
         activeOrders.Clear();
         guestsById.Clear();
 
-        MusicManager.Instance.PlayMusicNow(MusicCues.Normal);
+        MusicManager.Instance.PlayMusicNow(MusicCues.Intro);
 
         currentSummary = new WorkdaySummary
         {
@@ -170,6 +170,41 @@ public class WorkdayManager : DoNotDestroySingletonManager<WorkdayManager>
         return ServeOrderAtIndex(selectedOrderIndex);
     }
 
+    public bool ServeOrderById(int orderId)
+    {
+        if (!TryGetOrderIndexById(orderId, out int orderIndex))
+        {
+            return false;
+        }
+
+        return ServeOrderAtIndex(orderIndex);
+    }
+
+    public bool ServeOrderById(int orderId, PancakeController servedPancake)
+    {
+        if (!TryGetOrderIndexById(orderId, out int orderIndex))
+        {
+            return false;
+        }
+
+        return ServeOrderAtIndex(orderIndex, servedPancake);
+    }
+
+    public bool TryGetOrderIndexById(int orderId, out int orderIndex)
+    {
+        for (int i = 0; i < activeOrders.Count; i++)
+        {
+            if (activeOrders[i].orderId == orderId)
+            {
+                orderIndex = i;
+                return true;
+            }
+        }
+
+        orderIndex = -1;
+        return false;
+    }
+
     public void SelectPreviousOrder()
     {
         MoveSelection(-1);
@@ -178,6 +213,57 @@ public class WorkdayManager : DoNotDestroySingletonManager<WorkdayManager>
     public void SelectNextOrder()
     {
         MoveSelection(1);
+    }
+
+    public bool ServeOrderAtIndex(int index)
+    {
+        return ServeOrderAtIndex(index, null);
+    }
+
+    private bool ServeOrderAtIndex(int index, PancakeController preferredPancake)
+    {
+        if (!IsRunning || activeOrders.Count == 0)
+        {
+            return false;
+        }
+
+        int safeIndex = Mathf.Clamp(index, 0, activeOrders.Count - 1);
+        GuestOrder order = activeOrders[safeIndex];
+        activeOrders.RemoveAt(safeIndex);
+        order.state = GuestOrderState.Served;
+
+        guestsById.TryGetValue(order.guestId, out GuestProfile guest);
+
+        PancakeController servedPancake = null;
+        PancakeStats pancakeStats = null;
+        if (PancakeRegistry.TryGetInstance(out PancakeRegistry registry))
+        {
+            servedPancake = ResolveServePancakeCandidate(registry, preferredPancake);
+            if (servedPancake != null)
+            {
+                pancakeStats = servedPancake.stats;
+            }
+        }
+
+        GuestRatingResult rating = ratingCalculator.EvaluateServed(order, guest, pancakeStats, Time.time);
+
+        if (servedPancake != null)
+        {
+            RespawnServedPancake(servedPancake);
+        }
+
+        RecordRating(rating);
+        ClampSelectedOrderIndex();
+
+        OnOrderServed?.Invoke(order, rating);
+        SoundManager.Instance.PlayFromCue(SoundCues.OrderSubmitted, transform.position);
+
+        if (logEvents)
+        {
+            Debug.Log($"Served {order.guestName}: {rating.stars:F1} stars");
+        }
+
+        return true;
     }
 
     #endregion
@@ -369,52 +455,6 @@ public class WorkdayManager : DoNotDestroySingletonManager<WorkdayManager>
     #endregion
 
     #region Order Processing
-
-    private bool ServeOrderAtIndex(int index)
-    {
-        if (!IsRunning || activeOrders.Count == 0)
-        {
-            return false;
-        }
-
-        int safeIndex = Mathf.Clamp(index, 0, activeOrders.Count - 1);
-        GuestOrder order = activeOrders[safeIndex];
-        activeOrders.RemoveAt(safeIndex);
-        order.state = GuestOrderState.Served;
-
-        guestsById.TryGetValue(order.guestId, out GuestProfile guest);
-
-        PancakeController servedPancake = null;
-        PancakeStats pancakeStats = null;
-        if (PancakeRegistry.TryGetInstance(out PancakeRegistry registry))
-        {
-            servedPancake = FindServePancakeCandidate(registry);
-            if (servedPancake != null)
-            {
-                pancakeStats = servedPancake.stats;
-            }
-        }
-
-        GuestRatingResult rating = ratingCalculator.EvaluateServed(order, guest, pancakeStats, Time.time);
-
-        if (servedPancake != null)
-        {
-            RespawnServedPancake(servedPancake);
-        }
-
-        RecordRating(rating);
-        ClampSelectedOrderIndex();
-
-        OnOrderServed?.Invoke(order, rating);
-        SoundManager.Instance.PlayFromCue(SoundCues.OrderSubmitted, transform.position);
-
-        if (logEvents)
-        {
-            Debug.Log($"Served {order.guestName}: {rating.stars:F1} stars");
-        }
-
-        return true;
-    }
 
     private void TickArrivals(float now)
     {
@@ -617,6 +657,28 @@ public class WorkdayManager : DoNotDestroySingletonManager<WorkdayManager>
 
         registry.TryGetPancake(out PancakeController fallback);
         return fallback;
+    }
+
+    private static PancakeController ResolveServePancakeCandidate(PancakeRegistry registry, PancakeController preferredPancake)
+    {
+        if (registry == null)
+        {
+            return null;
+        }
+
+        if (preferredPancake != null)
+        {
+            IReadOnlyList<PancakeController> pancakes = registry.Pancakes;
+            for (int i = 0; i < pancakes.Count; i++)
+            {
+                if (pancakes[i] == preferredPancake)
+                {
+                    return preferredPancake;
+                }
+            }
+        }
+
+        return FindServePancakeCandidate(registry);
     }
 
     private static string FormatToppings(GuestOrder order)

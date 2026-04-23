@@ -12,13 +12,9 @@ public class GuestProfileGenerator
 
     private static readonly PancakeToppingType[] ToppingPool =
     {
-        PancakeToppingType.Butter,
-        PancakeToppingType.Syrup,
         PancakeToppingType.Blueberries,
         PancakeToppingType.ChocolateChips,
-        PancakeToppingType.Banana,
         PancakeToppingType.Strawberries,
-        PancakeToppingType.WhippedCream
     };
 
     public GuestProfile GenerateGuest(int guestId, WorkdayDifficultyState difficulty, System.Random rng)

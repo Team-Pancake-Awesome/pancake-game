@@ -38,6 +38,12 @@ public class FlamePot : MonoBehaviour
     public Color uncookedColor = new(1f, 0.9f, 0.75f, 1f); // TODO: once proper textures are in, move texture business in pancake and call from radius check
     public Color burntColor = new(0.22f, 0.13f, 0.08f, 1f);
 
+    [Header("stored heat")]
+    [Range(0f, 1f)]
+    public float currentHeat01 = 0f;
+    public float CurrentHeat01 => currentHeat01;
+
+
     private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
     private static readonly int ColorId = Shader.PropertyToID("_Color");
     private readonly Collider[] heatHits = new Collider[32];
@@ -116,6 +122,12 @@ public class FlamePot : MonoBehaviour
             pancake.ApplyHeat(heatAmount);
         }
     }
+
+    public void AddHeatDelta(float delta)
+    {
+        currentHeat01 = Mathf.Clamp01(currentHeat01 + delta);
+    }
+
 
     void UpdatePancakeVisuals()
     {

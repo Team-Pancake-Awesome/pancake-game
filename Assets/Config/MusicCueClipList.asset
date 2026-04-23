@@ -13,15 +13,75 @@ MonoBehaviour:
   m_Name: MusicCueClipList
   m_EditorClassIdentifier: 
   clips:
-  - cue: 0
-    volume: 0
-    pitch: 0
+  - volume: 1
+    pitch: 1
     loop: 0
     spatialize: 0
     spatialBlend: 0
-    maxDistance: 0
+    maxDistance: 500
     rolloffMode: 0
-    minDistance: 0
-    clip: {fileID: 0}
+    minDistance: 1
+    clip: {fileID: 8300000, guid: bd4c0cd172866150181e6c9f2c7f7fcb, type: 3}
+    cue: 0
+    additive: 0
+    additiveTransitionTime: 0
+  - volume: 1
+    pitch: 1
+    loop: 0
+    spatialize: 0
+    spatialBlend: 0
+    maxDistance: 500
+    rolloffMode: 0
+    minDistance: 1
+    clip: {fileID: 8300000, guid: 0959fdc18b5d778aa9aad8a259eef6cb, type: 3}
+    cue: 1
+    additive: 1
+    additiveTransitionTime: 0
+  - volume: 1
+    pitch: 1
+    loop: 0
+    spatialize: 0
+    spatialBlend: 0
+    maxDistance: 500
+    rolloffMode: 0
+    minDistance: 1
+    clip: {fileID: 8300000, guid: 95fece3b1892b6c9e90c8f6bab2934cb, type: 3}
+    cue: 2
+    additive: 1
+    additiveTransitionTime: 0
+  - volume: 1
+    pitch: 1
+    loop: 0
+    spatialize: 0
+    spatialBlend: 0
+    maxDistance: 500
+    rolloffMode: 0
+    minDistance: 1
+    clip: {fileID: 8300000, guid: 652e632edd09e2b519bc3e43e858d96e, type: 3}
+    cue: 3
+    additive: 1
+    additiveTransitionTime: 0
+  - volume: 1
+    pitch: 1
+    loop: 0
+    spatialize: 0
+    spatialBlend: 0
+    maxDistance: 500
+    rolloffMode: 0
+    minDistance: 1
+    clip: {fileID: 8300000, guid: 06ba63321062fbc5782487b30959f44e, type: 3}
+    cue: 4
+    additive: 0
+    additiveTransitionTime: 0
+  - volume: 1
+    pitch: 1
+    loop: 1
+    spatialize: 0
+    spatialBlend: 0
+    maxDistance: 500
+    rolloffMode: 0
+    minDistance: 1
+    clip: {fileID: 8300000, guid: c4431086cef33edaeb2eb6ddb2d6d1d7, type: 3}
+    cue: 5
     additive: 0
     additiveTransitionTime: 0
