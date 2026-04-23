@@ -5901,7 +5901,7 @@ MonoBehaviour:
   spawnOffset: {x: 0.15, y: 0.7, z: -0.2}
   useSpawnPointRotation: 1
   spatulaTag: Spatula
-  spawnCooldown: 0.15
+  spawnCooldown: 0.5
   useStayChecks: 0
   forceKinematicRigidbody: 1
 --- !u!54 &718901663
@@ -7749,7 +7749,7 @@ MonoBehaviour:
   spawnOffset: {x: -0.1, y: 0.7, z: -0.2}
   useSpawnPointRotation: 1
   spatulaTag: Spatula
-  spawnCooldown: 0.15
+  spawnCooldown: 0.5
   useStayChecks: 0
   forceKinematicRigidbody: 1
 --- !u!54 &1026810119
@@ -15552,7 +15552,7 @@ MonoBehaviour:
   spawnOffset: {x: 0.7, y: 0.5, z: -0.2}
   useSpawnPointRotation: 1
   spatulaTag: Spatula
-  spawnCooldown: 0.15
+  spawnCooldown: 0.5
   useStayChecks: 0
   forceKinematicRigidbody: 1
 --- !u!54 &1405538882
