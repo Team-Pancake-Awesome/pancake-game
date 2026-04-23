@@ -1033,7 +1033,7 @@ MonoBehaviour:
   debugMenu: {fileID: 0}
   pauseMenu: {fileID: 0}
   mainMenu: MainMenu
-  gameSceneName: workday
+  gameSceneName: Main
 --- !u!4 &1159564126
 Transform:
   m_ObjectHideFlags: 0
