@@ -16758,8 +16758,8 @@ MonoBehaviour:
   plateSlots:
   - {fileID: 66577341}
   - {fileID: 1247857987}
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 397472548}
+  - {fileID: 768193991}
   fallbackSlotOffset: {x: 1.5, y: 0, z: 0}
   clearOnDayEnded: 1
   logEvents: 0
