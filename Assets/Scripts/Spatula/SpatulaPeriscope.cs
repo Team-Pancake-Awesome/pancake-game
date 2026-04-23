@@ -16,6 +16,7 @@ public class SpatulaPeriscope : MonoBehaviour
     
     [Header("Positioning")]
     public Vector3 offset = new (0, 0.5f, 0);
+    public Vector3 rotationOffset = Vector3.zero;
     public BoundingBox boundingBox = new() { center = Vector3.zero, size = new Vector3(10f, 10f, 10f) };
 
     [Header("Flip Tracking")]
@@ -34,6 +35,16 @@ public class SpatulaPeriscope : MonoBehaviour
 
     private PancakeController trackedPancake;
     private Quaternion defaultRotation;
+
+    Quaternion GetRotationOffset()
+    {
+        return Quaternion.Euler(rotationOffset);
+    }
+
+    Quaternion GetDefaultRotation()
+    {
+        return defaultRotation * GetRotationOffset();
+    }
 
     void Awake()
     {
@@ -103,7 +114,7 @@ public class SpatulaPeriscope : MonoBehaviour
     {
         if (trackedPancake == null || !trackedPancake.IsAirborne)
         {
-            transform.rotation = Quaternion.Slerp(transform.rotation, defaultRotation, resetRotateSpeed * Time.deltaTime);
+            transform.rotation = Quaternion.Slerp(transform.rotation, GetDefaultRotation(), resetRotateSpeed * Time.deltaTime);
             return;
         }
 
@@ -114,7 +125,7 @@ public class SpatulaPeriscope : MonoBehaviour
             return;
         }
 
-        Quaternion targetRotation = Quaternion.LookRotation(lookDirection.normalized, Vector3.up);
+        Quaternion targetRotation = Quaternion.LookRotation(lookDirection.normalized, Vector3.up) * GetRotationOffset();
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, trackingRotateSpeed * Time.deltaTime);
     }
 
