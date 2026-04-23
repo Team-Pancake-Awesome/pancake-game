@@ -4819,8 +4819,8 @@ MonoBehaviour:
   offset: {x: 0, y: 1, z: -2.5}
   rotationOffset: {x: 0, y: 0, z: 0}
   boundingBox:
-    center: {x: 0, y: 0, z: 0}
-    size: {x: 10, y: 10, z: 10}
+    center: {x: 2.8, y: 0, z: 0}
+    size: {x: 4, y: 10, z: 10}
   trackingTriggerDistance: 3
   trackingRotateSpeed: 10
   resetRotateSpeed: 8
