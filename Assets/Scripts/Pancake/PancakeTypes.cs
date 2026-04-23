@@ -9,12 +9,8 @@ public enum PancakeDoneness
 
 public enum PancakeToppingType
 {
-    Butter,
-    Syrup,
     Blueberries,
     ChocolateChips,
-    Banana,
     Strawberries,
-    WhippedCream,
     Custom
 }

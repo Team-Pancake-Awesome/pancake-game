@@ -5,7 +5,7 @@ using UnityEngine;
 [Serializable]
 public class PancakeTopping
 {
-    public PancakeToppingType type = PancakeToppingType.Butter;
+    public PancakeToppingType type = PancakeToppingType.Blueberries;
     public string customName = string.Empty;
 
     [Min(0f)]
