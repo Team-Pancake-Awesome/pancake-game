@@ -68,7 +68,7 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   maxUrgencySeconds: 45
-  minUrgencySeconds: 18
+  minUrgencySeconds: 25
   urgencyCurve:
     serializedVersion: 2
     m_Curve:
@@ -97,3 +97,5 @@ MonoBehaviour:
   endMaxConcurrentOrders: 5
   arrivalJitter: 0.1
   complexityJitter: 0.05
+  numPancakesMin: 2
+  numPancakesMax: 10

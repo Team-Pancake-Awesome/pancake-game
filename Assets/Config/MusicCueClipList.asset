@@ -15,7 +15,7 @@ MonoBehaviour:
   clips:
   - volume: 1
     pitch: 1
-    loop: 0
+    loop: 1
     spatialize: 0
     spatialBlend: 0
     maxDistance: 500
