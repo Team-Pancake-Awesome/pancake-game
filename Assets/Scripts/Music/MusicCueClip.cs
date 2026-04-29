@@ -14,4 +14,7 @@ public class MusicCueClip : CueClip
 
     [Tooltip("If additive, how long to take to transition in this music on top of the existing music")]
     public float additiveTransitionTime = 0f;
+
+    [Tooltip("Allow additive cues to play simulateously with this cue.")]
+    public bool allowAdditive = true;
 }
