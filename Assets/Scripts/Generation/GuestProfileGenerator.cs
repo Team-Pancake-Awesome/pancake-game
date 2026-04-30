@@ -24,7 +24,7 @@ public class GuestProfileGenerator
         GuestProfile guest = new()
         {
             guestId = guestId,
-            displayName = BuildName(guestId, rng),
+            displayName = BuildName(rng),
             patienceMultiplier = Mathf.Clamp(RandomRange(rng, 0.75f, 1.25f) - progress * 0.2f, 0.5f, 1.5f),
             donenessStrictness = Mathf.Clamp01(RandomRange(rng, 0.2f, 0.75f) + progress * 0.2f),
             generosity = Mathf.Clamp(RandomRange(rng, 0.85f, 1.2f), 0.5f, 1.5f)
@@ -43,10 +43,10 @@ public class GuestProfileGenerator
         return guest;
     }
 
-    private static string BuildName(int guestId, System.Random rng)
+    private static string BuildName(System.Random rng)
     {
         int nameIndex = rng != null ? rng.Next(0, NamePool.Length) : UnityEngine.Random.Range(0, NamePool.Length);
-        return NamePool[nameIndex] + " #" + guestId;
+        return NamePool[nameIndex];
     }
 
     private static float RandomRange(System.Random rng, float min, float max)
