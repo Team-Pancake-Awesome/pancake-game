@@ -4294,7 +4294,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b698a515b2bcc4eef9125235b99dedc3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  pancakePrefab: {fileID: 5232466074549392874, guid: 1b357ba805ffbde46b7584e1c46ea7ec, type: 3}
+  pancakePrefab: {fileID: 7878635254719888649, guid: 479fc34c611f74286b4736eac5f6ccd4, type: 3}
   spawnPoint: {fileID: 584127530}
   spawnOffset: {x: 0, y: 0.1, z: 0}
   spawnVelocity: {x: 0, y: 0, z: 0}

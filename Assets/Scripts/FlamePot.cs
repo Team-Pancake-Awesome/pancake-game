@@ -145,19 +145,35 @@ public class FlamePot : MonoBehaviour
                 continue;
             }
 
-            Renderer meshRenderer = pancake.GetComponentInChildren<Renderer>();
-            if (meshRenderer == null)
+            Renderer[] meshRenderers = pancake.GetComponentsInChildren<Renderer>();
+            if (meshRenderers == null || meshRenderers.Length == 0)
             {
                 continue;
             }
 
-            float cooked01 = Mathf.Clamp01(pancake.AverageCookAmount);
-            Color cookedColor = Color.Lerp(uncookedColor, burntColor, cooked01);
+            // Top mesh (first child)
+            if (meshRenderers.Length > 0 && meshRenderers[0] != null)
+            {
+                float topCooked01 = Mathf.Clamp01(pancake.stats.topCookAmount);
+                Color topColor = Color.Lerp(uncookedColor, burntColor, topCooked01);
 
-            meshRenderer.GetPropertyBlock(materialPropertyBlock);
-            materialPropertyBlock.SetColor(BaseColorId, cookedColor);
-            materialPropertyBlock.SetColor(ColorId, cookedColor);
-            meshRenderer.SetPropertyBlock(materialPropertyBlock);
+                meshRenderers[0].GetPropertyBlock(materialPropertyBlock);
+                materialPropertyBlock.SetColor(BaseColorId, topColor);
+                materialPropertyBlock.SetColor(ColorId, topColor);
+                meshRenderers[0].SetPropertyBlock(materialPropertyBlock);
+            }
+
+            // Bottom mesh (second child)
+            if (meshRenderers.Length > 1 && meshRenderers[1] != null)
+            {
+                float bottomCooked01 = Mathf.Clamp01(pancake.stats.bottomCookAmount);
+                Color bottomColor = Color.Lerp(uncookedColor, burntColor, bottomCooked01);
+
+                meshRenderers[1].GetPropertyBlock(materialPropertyBlock);
+                materialPropertyBlock.SetColor(BaseColorId, bottomColor);
+                materialPropertyBlock.SetColor(ColorId, bottomColor);
+                meshRenderers[1].SetPropertyBlock(materialPropertyBlock);
+            }
         }
     }
 
