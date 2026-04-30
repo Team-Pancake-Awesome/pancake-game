@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7b4ec29cb0b9bf7c28145e0bbf7df813, type: 3}
-  m_Name: Day2
+  m_Name: Day4
   m_EditorClassIdentifier: 
   beginStageSeconds: 5
   workdayDurationSeconds: 240
@@ -41,8 +41,8 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  startComplexity: 0.2
-  endComplexity: 0.55
+  startComplexity: 0.4
+  endComplexity: 0.75
   complexityCurve:
     serializedVersion: 2
     m_Curve:
@@ -67,8 +67,8 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  maxUrgencySeconds: 55
-  minUrgencySeconds: 40
+  maxUrgencySeconds: 45
+  minUrgencySeconds: 30
   urgencyCurve:
     serializedVersion: 2
     m_Curve:
@@ -93,9 +93,9 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  startMaxConcurrentOrders: 2
-  endMaxConcurrentOrders: 4
+  startMaxConcurrentOrders: 3
+  endMaxConcurrentOrders: 5
   arrivalJitter: 0.1
-  complexityJitter: 0.05
-  numPancakesMin: 2
-  numPancakesMax: 12
+  complexityJitter: 0.075
+  numPancakesMin: 3
+  numPancakesMax: 20

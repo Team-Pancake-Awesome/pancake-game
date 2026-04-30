@@ -42,7 +42,7 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   startComplexity: 0.15
-  endComplexity: 0.9
+  endComplexity: 0.5
   complexityCurve:
     serializedVersion: 2
     m_Curve:
@@ -67,8 +67,8 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  maxUrgencySeconds: 45
-  minUrgencySeconds: 25
+  maxUrgencySeconds: 60
+  minUrgencySeconds: 45
   urgencyCurve:
     serializedVersion: 2
     m_Curve:
