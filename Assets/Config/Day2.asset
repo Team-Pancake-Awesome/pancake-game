@@ -41,8 +41,8 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  startComplexity: 0.15
-  endComplexity: 0.9
+  startComplexity: 0.2
+  endComplexity: 0.55
   complexityCurve:
     serializedVersion: 2
     m_Curve:
@@ -67,8 +67,8 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  maxUrgencySeconds: 45
-  minUrgencySeconds: 18
+  maxUrgencySeconds: 55
+  minUrgencySeconds: 40
   urgencyCurve:
     serializedVersion: 2
     m_Curve:
@@ -93,7 +93,9 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  startMaxConcurrentOrders: 3
-  endMaxConcurrentOrders: 5
+  startMaxConcurrentOrders: 2
+  endMaxConcurrentOrders: 4
   arrivalJitter: 0.1
   complexityJitter: 0.05
+  numPancakesMin: 2
+  numPancakesMax: 12

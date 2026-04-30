@@ -53,3 +53,13 @@ MonoBehaviour:
     minDistance: 1
     clip: {fileID: 8300000, guid: 119159bd34ad1c35cbd3176382d45113, type: 3}
     cue: 4
+  - volume: 1
+    pitch: 1
+    loop: 0
+    spatialize: 0
+    spatialBlend: 0
+    maxDistance: 500
+    rolloffMode: 0
+    minDistance: 1
+    clip: {fileID: 8300000, guid: d682ec073638c0097a498c44aeb1b127, type: 3}
+    cue: 5

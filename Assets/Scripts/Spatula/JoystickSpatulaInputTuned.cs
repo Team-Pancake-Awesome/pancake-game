@@ -168,16 +168,34 @@ public class JoystickSpatulaInputTuned : MonoBehaviour, ISpatulaInput, ISpatulaI
         if (enableFlipDetection)
         {
             bool flipArmHeld = currentActionButtonHeld || keyboardHeld;
-            bool isFlickingUp = filteredPitchVelocity >= pitchFlipVelocityThreshold;
-            bool pitchDeltaOK = Mathf.Abs(latestPitchDelta) >= pitchDeltaThreshold;
+
+            // Your current HID setup reports upward spatula motion as NEGATIVE pitch.
+            // So a real upward flick should have negative pitch velocity and negative pitch delta.
+            bool isFlickingUp = filteredPitchVelocity <= -pitchFlipVelocityThreshold;
+            bool pitchDeltaOK = latestPitchDelta <= -pitchDeltaThreshold;
+
+            // Twisting/rolling should NOT count as a flip.
             bool rollOK = Mathf.Abs(currentRoll) <= rollLimit;
+
             bool cooldownOK = (Time.time - lastFlipTime) >= cooldown;
 
             if (flipArmHeld && isFlickingUp && pitchDeltaOK && rollOK && cooldownOK)
             {
                 lastFlipTime = Time.time;
-                float strength = Mathf.Clamp(filteredPitchVelocity / Mathf.Max(0.1f, pitchFlipVelocityThreshold), 1f, 2.5f);
-                Debug.Log($"FLIP DETECTED | Velocity: {filteredPitchVelocity:F1} | Delta: {latestPitchDelta:F1} | Strength: {strength:F2}");
+
+                float upwardVelocity = Mathf.Abs(filteredPitchVelocity);
+
+                // Keep strength intentionally tame. We do not want every valid flip to launch the pancake into orbit.
+                float strength = Mathf.Clamp(
+                    upwardVelocity / Mathf.Max(0.1f, pitchFlipVelocityThreshold),
+                    0.75f,
+                    1.35f
+                );
+
+                Debug.Log(
+                    $"FLIP DETECTED | Velocity: {filteredPitchVelocity:F1} | Delta: {latestPitchDelta:F1} | Roll: {currentRoll:F1} | Strength: {strength:F2}"
+                );
+
                 state.FlipTriggered = true;
                 state.SnapRequested = true;
                 state.FlipStrength = strength;

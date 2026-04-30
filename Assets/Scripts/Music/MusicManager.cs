@@ -242,7 +242,29 @@ public class MusicManager : AudioManager<MusicManager>
 
         if (nextCueClip.additive)
         {
+            if (!nextCueClip.allowAdditive)
+            {
+                StopAllAdditiveLayers(nextCueClip.additiveTransitionTime);
+
+                if (hasCurrentCue && currentCue != cue)
+                {
+                    int currentIndex = (int)currentCue;
+                    AudioSource existing = sources[currentIndex];
+                    existing?.Stop();
+
+                    hasCurrentCue = false;
+                }
+            }
+
             PlayAdditiveLayer(cue, nextCueClip, nextSource, transitionTransportSeconds);
+
+            // If exclusive, treat this additive cue as the current/only cue.
+            if (!nextCueClip.allowAdditive)
+            {
+                currentCue = cue;
+                hasCurrentCue = true;
+            }
+
             return;
         }
 

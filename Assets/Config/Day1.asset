@@ -12,6 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7b4ec29cb0b9bf7c28145e0bbf7df813, type: 3}
   m_Name: Day1
   m_EditorClassIdentifier: 
+  beginStageSeconds: 0
+  workdayDurationSeconds: 240
+  ratingStageSeconds: 3
   startArrivalInterval: 14
   endArrivalInterval: 4
   arrivalCurve:
@@ -39,7 +42,7 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   startComplexity: 0.15
-  endComplexity: 0.9
+  endComplexity: 0.5
   complexityCurve:
     serializedVersion: 2
     m_Curve:
@@ -64,8 +67,8 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  maxUrgencySeconds: 45
-  minUrgencySeconds: 18
+  maxUrgencySeconds: 60
+  minUrgencySeconds: 45
   urgencyCurve:
     serializedVersion: 2
     m_Curve:
@@ -94,3 +97,5 @@ MonoBehaviour:
   endMaxConcurrentOrders: 4
   arrivalJitter: 0.1
   complexityJitter: 0.05
+  numPancakesMin: 2
+  numPancakesMax: 10
