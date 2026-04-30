@@ -21064,10 +21064,10 @@ MonoBehaviour:
   rollDeadzone: 2
   enableFlipDetection: 1
   pitchFlipVelocityThreshold: 280
-  pitchDeltaThreshold: 8
-  pitchVelocitySmoothing: 0.12
-  rollLimit: 45
-  cooldown: 0.35
+  pitchDeltaThreshold: 10
+  pitchVelocitySmoothing: 0.18
+  rollLimit: 75
+  cooldown: 0.6
   debugGyroY: 0
   debugPitch: 0
   debugPitchDelta: 0
