@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System;
 
 public class UIManager : MonoBehaviour
 {
@@ -13,15 +14,32 @@ public class UIManager : MonoBehaviour
     public GameObject endOfDayUI;
     public GameObject debugMenu;
     public GameObject pauseMenu;
+    public GameObject gameUI;
+    public GameObject HappyPancake;
+    public GameObject MidPancake;
+    public GameObject BurntPancake;
     
     public string mainMenu;
     public string gameSceneName;
-    // Start is called before the first frame update
+    
     void Start()
     {
        Time.timeScale = 1f;
        GameIsPaused = false;
        UIOpen = false;
+
+       if (WorkdayManager.Instance != null)
+        {
+            WorkdayManager.Instance.OnDayEnded += HandleEndOfDay;
+        }
+    }
+
+    void OnDestroy()
+    {
+        if (WorkdayManager.Instance != null)
+        {
+            WorkdayManager.Instance.OnDayEnded -= HandleEndOfDay;
+        }
     }
 
     // Update is called once per frame
@@ -29,10 +47,10 @@ public class UIManager : MonoBehaviour
     {
         if(Input.GetKeyDown(KeyCode.Escape))
         {
-            if(GameIsPaused == true && endOfDayUI.activeInHierarchy == false)
+            if(GameIsPaused && !endOfDayUI.activeInHierarchy)
             {
                 Resume();
-            } else if(endOfDayUI.activeInHierarchy == true)
+            } else if(UIOpen)
             {
                 
             } else
@@ -42,7 +60,7 @@ public class UIManager : MonoBehaviour
         }
         if (Input.GetKeyDown(KeyCode.G))
         {
-            if(debugMenu == true)
+            if(debugMenu.activeInHierarchy)
             {
                 CloseDebug();
             } else
@@ -54,6 +72,12 @@ public class UIManager : MonoBehaviour
         {
             Restart();
         }
+    }
+
+    private void HandleEndOfDay(WorkdaySummary summary)
+    {
+        OpenEndOfDay();
+        SetActivePancakeCharacter(summary.averageStars);
     }
 
     public void Resume()
@@ -112,5 +136,32 @@ public class UIManager : MonoBehaviour
     void CloseDebug()
     {
         debugMenu.SetActive(false);
+    }
+
+    void OpenEndOfDay()
+    {
+        endOfDayUI.SetActive(true);
+        gameUI.SetActive(false);
+        UIOpen = true;
+        Time.timeScale = 0f;
+        GameIsPaused = true;
+    }
+
+    void SetActivePancakeCharacter(float averageStars)
+    {
+        HappyPancake.SetActive(false);
+        MidPancake.SetActive(false);
+        BurntPancake.SetActive(false);
+
+        if (averageStars < 2.0f)
+        {
+            BurntPancake.SetActive(true);
+        } else if (averageStars < 4.0f)
+        {
+            MidPancake.SetActive(true);
+        } else
+        {
+            HappyPancake.SetActive(true);
+        }
     }
 }
