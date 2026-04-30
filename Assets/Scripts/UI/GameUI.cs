@@ -1,12 +1,14 @@
 using UnityEngine;
 using TMPro;
 using System.Collections;
+using OpenCover.Framework.Model;
 
-public class LiveRatingUI : MonoBehaviour
+public class GameUI : MonoBehaviour
 {
     [Header("UI References")]
     public GameObject ratingPanel;
     public TextMeshProUGUI ratingText;
+    public TextMeshProUGUI timeLeft;
 
     [Header("Settings")]
     public float displayDuration = 3f;
@@ -19,7 +21,7 @@ public class LiveRatingUI : MonoBehaviour
 
         if (WorkdayManager.Instance != null)
         {
-            WorkdayManager.Instance.OnOrderServed += ShowRecentRating;
+            WorkdayManager.Instance.OnOrderServed += ShowGameUI;
         }
     }
 
@@ -27,11 +29,24 @@ public class LiveRatingUI : MonoBehaviour
     {
         if (WorkdayManager.Instance != null)
         {
-            WorkdayManager.Instance.OnOrderServed -= ShowRecentRating;
+            WorkdayManager.Instance.OnOrderServed -= ShowGameUI;
         }
     }
 
-    private void ShowRecentRating(GuestOrder order, GuestRatingResult result)
+    private void Update()
+    {
+        if (WorkdayManager.Instance != null && timeLeft != null)
+        {
+            float timeInSeconds = WorkdayManager.Instance.RemainingSeconds;
+
+            int minutes = Mathf.FloorToInt(timeInSeconds / 60f);
+            int seconds = Mathf.FloorToInt(timeInSeconds % 60f);
+
+            timeLeft.text = string.Format("{0:00}:{1:00}", minutes, seconds);
+        }
+    }
+
+    private void ShowGameUI(GuestOrder order, GuestRatingResult result)
     {
         if (ratingPanel == null || ratingText == null) return;
 
