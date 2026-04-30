@@ -147,6 +147,15 @@ public class UIManager : MonoBehaviour
         GameIsPaused = true;
     }
 
+    public void CloseEndOfDay()
+    {
+        endOfDayUI.SetActive(false);
+        gameUI.SetActive(true);
+        UIOpen = false;
+        Time.timeScale = 1f;
+        GameIsPaused = false;
+    }
+
     void SetActivePancakeCharacter(float averageStars)
     {
         HappyPancake.SetActive(false);
