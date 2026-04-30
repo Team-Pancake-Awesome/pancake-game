@@ -176,7 +176,8 @@ public class PlateDebugView : MonoBehaviour
 		float timeLeft = order.RemainingTime(Time.time);
 
 		ticketText.text =
-			$"{order.guestName}\n" +
+			$"{order.guestName} " +
+			$"#{order.orderId}\n" +
 			$"{order.requiredDoneness} | {FormatToppings(order)}\n" +
 			$"{timeLeft:F1}s";
 	}
