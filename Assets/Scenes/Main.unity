@@ -21042,7 +21042,7 @@ MonoBehaviour:
   deviceNameContains: 
   enableKeyboardLockFallback: 0
   logLiveValues: 1
-  logInterval: 0.1
+  logInterval: 0.25
   invertRoll: 1
   invertPitch: 1
   hidPitchRange: 90
@@ -21059,13 +21059,13 @@ MonoBehaviour:
   actionButtonName: trigger
   useTriggerForAction: 0
   lockKey: 32
-  minPitchInput: 30
-  maxPitchInput: -40
+  minPitchInput: 25
+  maxPitchInput: -90
   rollDeadzone: 2
   enableFlipDetection: 1
-  pitchFlipVelocityThreshold: 90
-  pitchDeltaThreshold: 1
-  pitchVelocitySmoothing: 0.1
+  pitchFlipVelocityThreshold: 280
+  pitchDeltaThreshold: 8
+  pitchVelocitySmoothing: 0.12
   rollLimit: 45
   cooldown: 0.35
   debugGyroY: 0
@@ -21119,9 +21119,9 @@ MonoBehaviour:
   primaryInputComponent: {fileID: 2060293708}
   secondaryInputComponent: {fileID: 2060293709}
   allowFallbackInput: 1
-  rotationSmoothSpeed: 12
-  minAngle: -20
-  maxAngle: 60
+  rotationSmoothSpeed: 16
+  minAngle: -25
+  maxAngle: 35
   snapAngle: 22
   snapReturnSpeed: 12
   moveMultiplier: 0.07
