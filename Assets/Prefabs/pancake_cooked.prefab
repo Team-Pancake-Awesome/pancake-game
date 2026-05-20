@@ -118,6 +118,13 @@ MonoBehaviour:
     topSideUp: 1
     toppings: []
   clearToppingsOnReset: 1
+  readVisualSideOnScoop: 1
+  swapSideOnSuccessfulFlip: 1
+  snapVisualSideOnScoop: 1
+  snapVisualSideOnLanding: 1
+  sideFlipRotationOffsetEuler: {x: 180, y: 0, z: 0}
+  invertVisualSideState: 1
+  logSideChanges: 1
   maxFlipDistance: 1.5
   scoopOffset: {x: 0, y: 0.3, z: 0}
   sloppyFlingMultiplier: 3
@@ -134,6 +141,18 @@ MonoBehaviour:
   resetKey: 114
   testLaunchKey: 116
   launchGracePeriod: 0.2
+  launchClearance: 0.08
+  failsafeMinimumAirtime: 0.45
+  failsafeMaxHeightAboveLaunch: 0.12
+  failsafeMaxVerticalSpeed: 0.35
+  ignoreSpatulaCollisionsAfterLaunch: 1
+  spatulaCollisionIgnoreDuration: 0.75
+  filterSpatulaLandingEventsDuringIgnoreWindow: 1
+  logIgnoredLaunchCollisions: 0
+  requireFallingBeforeLanding: 1
+  landingMaxUpwardVelocity: 0.15
+  logFlightMetrics: 1
+  logRejectedLaunchRequests: 0
 --- !u!54 &1687981923245651515
 Rigidbody:
   m_ObjectHideFlags: 0
