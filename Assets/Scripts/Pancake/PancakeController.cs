@@ -12,6 +12,28 @@ public class PancakeController : MonoBehaviour
     [Tooltip("Reset will also clear toppings when true")]
     public bool clearToppingsOnReset = true;
 
+    [Header("Pancake Side Rules")]
+    [Tooltip("When scooping, read the current physical/visual orientation before snapping to the spatula. This prevents pickup from forcing the same side down every time.")]
+    public bool readVisualSideOnScoop = true;
+
+    [Tooltip("A successful launched flip changes which pancake side is facing up when the flight ends.")]
+    public bool swapSideOnSuccessfulFlip = true;
+
+    [Tooltip("While held, rotate the visual pancake so the tracked side state is preserved on the spatula instead of always forcing the same side down.")]
+    public bool snapVisualSideOnScoop = true;
+
+    [Tooltip("When landing, flatten the pancake and show the side chosen by the game rule rather than relying on chaotic rigidbody rotation.")]
+    public bool snapVisualSideOnLanding = true;
+
+    [Tooltip("Rotation used to show the opposite side of the pancake. Usually 180 degrees around X for a flat pancake mesh.")]
+    public Vector3 sideFlipRotationOffsetEuler = new(180f, 0f, 0f);
+
+    [Tooltip("Use this only if the prefab's visual top side is opposite of transform.up.")]
+    public bool invertVisualSideState = false;
+
+    [Tooltip("Logs side-state changes caused by scoop/landing rules.")]
+    public bool logSideChanges = true;
+
     [Header("Scoop settings")]
     public float maxFlipDistance = 3.0f; 
     [Tooltip("Where to position the pancake relative to the spatula when scooped")]
@@ -103,6 +125,8 @@ public class PancakeController : MonoBehaviour
     public bool IsScooped { get; private set; } 
     public bool IsAirborne => airborne;
     private bool airborne = false;
+    private bool pendingSideSwapAfterLaunch = false;
+    private bool sideSwapAppliedThisFlight = false;
     private float lastLaunchTime = -999f;
     private float lastScoopTime = -999f;
     private Vector3 offCenterOffset;
@@ -182,6 +206,11 @@ public class PancakeController : MonoBehaviour
 
         CacheLaunchCollisionContext(spatula);
 
+        if (readVisualSideOnScoop)
+        {
+            SyncSideStateFromCurrentVisual("scoop");
+        }
+
         IsScooped = true;
         rb.isKinematic = true; 
         timeScooped = Time.time; // flip delay timer
@@ -215,6 +244,8 @@ public class PancakeController : MonoBehaviour
         {
             StopScoopMoveRoutine();
             IsScooped = false;
+            pendingSideSwapAfterLaunch = false;
+            sideSwapAppliedThisFlight = false;
             rb.isKinematic = false; // Turn gravity back on
             Debug.Log("Pancake Dropped.");
         }
@@ -238,6 +269,8 @@ public class PancakeController : MonoBehaviour
         StopScoopMoveRoutine();
         airborne = true;
         IsScooped = false;
+        pendingSideSwapAfterLaunch = swapSideOnSuccessfulFlip;
+        sideSwapAppliedThisFlight = false;
         lastLaunchTime = Time.time;
 
         // Turn physics back on for the launch
@@ -272,7 +305,6 @@ public class PancakeController : MonoBehaviour
 
         BeginFlightDebug(strength, upForce, sloppyForce.magnitude);
 
-        stats?.RegisterFlip();
         SoundManager.Instance.PlayFromCue(SoundCues.FlipPancake, transform.position);
 
         Debug.Log($"SUCCESSFUL LAUNCH! UpForce: {upForce:F2} | SloppyForce: {sloppyForce.magnitude:F2}");
@@ -324,6 +356,8 @@ public class PancakeController : MonoBehaviour
         EndFlightDebug("reset", null);
         airborne = false;
         IsScooped = false;
+        pendingSideSwapAfterLaunch = false;
+        sideSwapAppliedThisFlight = false;
         lastScoopTime = -999f;
         if (rb != null) rb.isKinematic = false;
         stats?.ResetForNewRound(!clearToppingsOnReset);
@@ -573,7 +607,7 @@ public class PancakeController : MonoBehaviour
             float easedT = Mathf.SmoothStep(0f, 1f, t);
 
             Vector3 targetPos = GetScoopTargetPosition(spatula);
-            Quaternion targetRot = spatula.rotation * Quaternion.Euler(scoopRotationOffsetEuler);
+            Quaternion targetRot = GetScoopedSideRotation(spatula);
 
             Vector3 syncedPos = Vector3.Lerp(startPos, targetPos, easedT);
 
@@ -590,7 +624,7 @@ public class PancakeController : MonoBehaviour
             while (IsScooped && spatula != null)
             {
                 Vector3 targetPos = GetScoopTargetPosition(spatula);
-                Quaternion targetRot = spatula.rotation * Quaternion.Euler(scoopRotationOffsetEuler);
+                Quaternion targetRot = GetScoopedSideRotation(spatula);
 
                 transform.SetPositionAndRotation(targetPos, targetRot);
                 yield return null;
@@ -600,6 +634,153 @@ public class PancakeController : MonoBehaviour
         scoopMoveRoutine = null;
     }
     
+    Quaternion GetScoopedSideRotation(Transform spatula)
+    {
+        Quaternion baseRotation = spatula.rotation * Quaternion.Euler(scoopRotationOffsetEuler);
+
+        if (!snapVisualSideOnScoop)
+        {
+            return baseRotation;
+        }
+
+        return GetSideAdjustedRotation(baseRotation);
+    }
+
+    Quaternion GetSideAdjustedRotation(Quaternion baseRotation)
+    {
+        if (stats == null)
+        {
+            return baseRotation;
+        }
+
+        bool showOriginalTopSideUp = stats.topSideUp;
+        if (invertVisualSideState)
+        {
+            showOriginalTopSideUp = !showOriginalTopSideUp;
+        }
+
+        if (showOriginalTopSideUp)
+        {
+            return baseRotation;
+        }
+
+        return baseRotation * Quaternion.Euler(sideFlipRotationOffsetEuler);
+    }
+
+    void SyncSideStateFromCurrentVisual(string reason)
+    {
+        if (stats == null)
+        {
+            return;
+        }
+
+        bool visualTopSideFacingWorldUp = Vector3.Dot(transform.up, Vector3.up) >= 0f;
+        bool desiredTopSideUpState = invertVisualSideState
+            ? !visualTopSideFacingWorldUp
+            : visualTopSideFacingWorldUp;
+
+        if (stats.topSideUp == desiredTopSideUpState)
+        {
+            return;
+        }
+
+        stats.topSideUp = desiredTopSideUpState;
+
+        if (logSideChanges)
+        {
+            Debug.Log($"PANCAKE SIDE SYNCED | reason={reason} | topSideUp={stats.topSideUp}");
+        }
+    }
+
+    void ApplyPendingSideSwap(string reason)
+    {
+        if (!pendingSideSwapAfterLaunch || sideSwapAppliedThisFlight || stats == null)
+        {
+            pendingSideSwapAfterLaunch = false;
+            return;
+        }
+
+        stats.RegisterFlip();
+        sideSwapAppliedThisFlight = true;
+        pendingSideSwapAfterLaunch = false;
+
+        if (logSideChanges)
+        {
+            Debug.Log($"PANCAKE SIDE SWAPPED | reason={reason} | topSideUp={stats.topSideUp} | flipCount={stats.flipCount}");
+        }
+    }
+
+    void CompleteAirborneLanding(string result, Collision collision, bool playLandingSound)
+    {
+        RestoreLaunchCollisionIgnore();
+        ApplyPendingSideSwap(result);
+
+        if (snapVisualSideOnLanding)
+        {
+            SnapVisualRotationToTrackedSide(collision);
+        }
+
+        EndFlightDebug(result, collision);
+        airborne = false;
+
+        if (playLandingSound)
+        {
+            SoundManager.Instance.PlayFromCue(SoundCues.PancakeLand, transform.position);
+            Debug.Log("Pancake Landed! Ready to scoop.");
+        }
+    }
+
+    void SnapVisualRotationToTrackedSide(Collision collision)
+    {
+        Vector3 surfaceUp = GetLandingSurfaceUp(collision);
+        Vector3 flatForward = Vector3.ProjectOnPlane(transform.forward, surfaceUp);
+
+        if (flatForward.sqrMagnitude < 0.0001f)
+        {
+            flatForward = Vector3.ProjectOnPlane(transform.right, surfaceUp);
+        }
+
+        if (flatForward.sqrMagnitude < 0.0001f)
+        {
+            flatForward = Vector3.ProjectOnPlane(Vector3.forward, surfaceUp);
+        }
+
+        if (flatForward.sqrMagnitude < 0.0001f)
+        {
+            flatForward = Vector3.forward;
+        }
+
+        Quaternion baseRotation = Quaternion.LookRotation(flatForward.normalized, surfaceUp);
+        Quaternion sideRotation = GetSideAdjustedRotation(baseRotation);
+
+        transform.rotation = sideRotation;
+
+        if (rb != null)
+        {
+            rb.rotation = sideRotation;
+            rb.angularVelocity = Vector3.zero;
+        }
+    }
+
+    Vector3 GetLandingSurfaceUp(Collision collision)
+    {
+        if (collision == null || collision.contactCount == 0)
+        {
+            return Vector3.up;
+        }
+
+        Vector3 normal = collision.GetContact(0).normal;
+
+        // If the pancake hits a wall/ceiling, do not let that surface flip the pancake sideways or stick it to the ceiling.
+        // Treat the game state as the source of truth and keep the pancake visually upright in world space.
+        if (normal.y < 0.25f)
+        {
+            return Vector3.up;
+        }
+
+        return normal.normalized;
+    }
+
     void TrackFlightHeight()
     {
         if (!trackingFlight)
@@ -682,11 +863,7 @@ public class PancakeController : MonoBehaviour
             return;
         }
 
-        RestoreLaunchCollisionIgnore();
-        EndFlightDebug("landed", collision);
-        airborne = false;
-        SoundManager.Instance.PlayFromCue(SoundCues.PancakeLand, transform.position);
-        Debug.Log("Pancake Landed! Ready to scoop.");
+        CompleteAirborneLanding("landed", collision, playLandingSound: true);
     }
 
     void OnCollisionStay(Collision collision)
@@ -717,9 +894,7 @@ public class PancakeController : MonoBehaviour
 
         if (stillNearLaunchHeight && notMovingUpMeaningfully)
         {
-            RestoreLaunchCollisionIgnore();
-            EndFlightDebug("failsafe-resting", collision);
-            airborne = false;
+            CompleteAirborneLanding("failsafe-resting", collision, playLandingSound: false);
             Debug.Log(
                 $"Pancake Failsafe: Reset airborne to false while resting. heightAboveLaunch={heightAboveLaunch:F2} verticalSpeed={verticalSpeed:F2}"
             );
