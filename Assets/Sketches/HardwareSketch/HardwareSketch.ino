@@ -5,6 +5,9 @@
 // Change to true for Bluetooth, false for USB
 #define USE_BLUETOOTH true
 
+const char* SKETCH_NAME = "Spatula Hardware Sketch";
+const char* SKETCH_VERSION = "gyro-flip-hid-2026-05-20";
+
 #if USE_BLUETOOTH
   #include <BleGamepad.h>
   BleGamepad Gamepad("Spatula");
@@ -30,12 +33,24 @@ volatile int virtualPot = 0;
 int encoderStep = 250; // Higher/lower changes how fast the flame turns up
 volatile unsigned long lastInterruptTime = 0;
 
-// Tuning Variables
+// Angle tuning
 float pitchOffset = 0.0f;
 float rollOffset = 0.0f;
 bool invertRoll = false;
 float pitchDeadzone = 4.0f;
 float rollDeadzone = 4.0f;
+
+// Gyro flip tuning
+// This is the axis sent to Unity as the dedicated flip-motion signal on right-stick X.
+// Start with 'x' because calculatePitch() is effectively rotation around the sensor's X axis.
+char flipGyroAxis = 'x';
+bool invertFlipGyro = false;
+float gyroDeadzoneDps = 18.0f;
+float gyroSendRangeDps = 1200.0f;
+float gyroXOffsetDps = 0.0f;
+float gyroYOffsetDps = 0.0f;
+float gyroZOffsetDps = 0.0f;
+
 bool enableDebugSerial = true;
 
 // State Variables
@@ -61,12 +76,15 @@ const int8_t hidRightMax = 127;
 // Function declarations
 void updateEncoder();
 void sendNeutralState();
-bool calibrateNeutralPose(int sampleCount = 80);
+bool calibrateNeutralPose(int sampleCount = 100);
 float calculatePitch(float ax, float ay, float az);
 float calculateRoll(float ax, float ay, float az);
 float applyAngleDeadzone(float angle, float deadzone);
+float applyRateDeadzone(float rate, float deadzone);
 uint8_t convertAngleToLeftStickRange(float angleDegrees);
 int8_t convertPotToRightStickRange(int potRaw);
+int8_t convertGyroToRightStickRange(float gyroDps);
+float chooseFlipGyroDps(float gyroXDps, float gyroYDps, float gyroZDps);
 
 void updateEncoder() {
   unsigned long interruptTime = millis();
@@ -91,6 +109,10 @@ void setup() {
 
   Serial.println();
   Serial.println("BOOTING HARDWARE SKETCH");
+  Serial.print("Sketch: ");
+  Serial.print(SKETCH_NAME);
+  Serial.print(" | Version: ");
+  Serial.println(SKETCH_VERSION);
   Serial.println("Before Wire / USB setup");
 
   Wire.begin();
@@ -107,7 +129,7 @@ void setup() {
     bleConfig.setIncludeSlider1(false);
     bleConfig.setIncludeSlider2(false);
 
-    // X/Y/Z/Rz remain enabled for left stick and right stick.
+    // X/Y = left stick pitch/roll. Z/Rz = right stick gyro/pot.
     Gamepad.begin(&bleConfig);
     Serial.println("Starting in BLUETOOTH Mode...");
   #else
@@ -129,7 +151,8 @@ void setup() {
     Serial.println("Failed to find MPU6050 chip");
   } else {
     mpu.setAccelerometerRange(MPU6050_RANGE_2_G);
-    mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+    mpu.setGyroRange(MPU6050_RANGE_1000_DEG);
+    mpu.setFilterBandwidth(MPU6050_BAND_44_HZ);
     Serial.println("MPU6050 ready");
   }
 
@@ -206,19 +229,33 @@ void loop() {
   pitch = applyAngleDeadzone(pitch, pitchDeadzone);
   roll = applyAngleDeadzone(roll, rollDeadzone);
 
+  float gyroXDps = (g.gyro.x * 180.0f / PI) - gyroXOffsetDps;
+  float gyroYDps = (g.gyro.y * 180.0f / PI) - gyroYOffsetDps;
+  float gyroZDps = (g.gyro.z * 180.0f / PI) - gyroZOffsetDps;
+  float flipGyroDps = chooseFlipGyroDps(gyroXDps, gyroYDps, gyroZDps);
+
+  if (invertFlipGyro) {
+    flipGyroDps = -flipGyroDps;
+  }
+
+  flipGyroDps = applyRateDeadzone(flipGyroDps, gyroDeadzoneDps);
+
   int actionButtonPressed = digitalRead(actionButtonPin) == LOW ? 1 : 0;
 
   uint8_t mappedPitch = convertAngleToLeftStickRange(pitch);
   uint8_t mappedRoll = convertAngleToLeftStickRange(roll);
   int8_t mappedPot = convertPotToRightStickRange(potRaw);
+  int8_t mappedFlipGyro = convertGyroToRightStickRange(flipGyroDps);
 
   #if USE_BLUETOOTH
     int16_t bleRoll = map(mappedRoll, 0, 255, 0, 32767);
     int16_t blePitch = map(mappedPitch, 0, 255, 0, 32767);
     int16_t blePot = map(mappedPot, -127, 127, 0, 32767);
+    int16_t bleFlipGyro = map(mappedFlipGyro, -127, 127, 0, 32767);
 
     Gamepad.setLeftThumb(bleRoll, blePitch);
-    Gamepad.setRightThumb(16384, blePot);
+    // Right thumb X now carries gyro flip speed. Right thumb Y still carries burner/pot.
+    Gamepad.setRightThumb(bleFlipGyro, blePot);
 
     if (actionButtonPressed == 1) {
       Gamepad.press(BUTTON_1);
@@ -227,7 +264,8 @@ void loop() {
     }
   #else
     Gamepad.leftStick((int8_t)mappedRoll, (int8_t)mappedPitch);
-    Gamepad.rightStick(hidRightCenter, mappedPot);
+    // Right stick X now carries gyro flip speed. Right stick Y still carries burner/pot.
+    Gamepad.rightStick(mappedFlipGyro, mappedPot);
 
     if (actionButtonPressed == 1) {
       Gamepad.pressButton(1);
@@ -243,6 +281,14 @@ void loop() {
     Serial.print(pitch);
     Serial.print(" roll=");
     Serial.print(roll);
+    Serial.print(" gyroX=");
+    Serial.print(gyroXDps);
+    Serial.print(" gyroY=");
+    Serial.print(gyroYDps);
+    Serial.print(" gyroZ=");
+    Serial.print(gyroZDps);
+    Serial.print(" flipGyro=");
+    Serial.print(flipGyroDps);
     Serial.print(" pot=");
     Serial.print(potRaw);
     Serial.print(" action=");
@@ -267,6 +313,9 @@ void sendNeutralState() {
 bool calibrateNeutralPose(int sampleCount) {
   float pitchSum = 0.0f;
   float rollSum = 0.0f;
+  float gyroXSum = 0.0f;
+  float gyroYSum = 0.0f;
+  float gyroZSum = 0.0f;
   int validSamples = 0;
 
   Serial.println("Calibrating neutral pose... hold spatula still.");
@@ -280,6 +329,9 @@ bool calibrateNeutralPose(int sampleCount) {
 
       pitchSum += rawPitch;
       rollSum += rawRoll;
+      gyroXSum += g.gyro.x * 180.0f / PI;
+      gyroYSum += g.gyro.y * 180.0f / PI;
+      gyroZSum += g.gyro.z * 180.0f / PI;
       validSamples++;
     }
 
@@ -293,11 +345,20 @@ bool calibrateNeutralPose(int sampleCount) {
 
   pitchOffset = pitchSum / validSamples;
   rollOffset = rollSum / validSamples;
+  gyroXOffsetDps = gyroXSum / validSamples;
+  gyroYOffsetDps = gyroYSum / validSamples;
+  gyroZOffsetDps = gyroZSum / validSamples;
 
   Serial.print("Calibration complete. pitchOffset=");
   Serial.print(pitchOffset);
   Serial.print(" rollOffset=");
-  Serial.println(rollOffset);
+  Serial.print(rollOffset);
+  Serial.print(" gyroXOffset=");
+  Serial.print(gyroXOffsetDps);
+  Serial.print(" gyroYOffset=");
+  Serial.print(gyroYOffsetDps);
+  Serial.print(" gyroZOffset=");
+  Serial.println(gyroZOffsetDps);
 
   return true;
 }
@@ -322,6 +383,18 @@ float applyAngleDeadzone(float angle, float deadzone) {
   return angle + deadzone;
 }
 
+float applyRateDeadzone(float rate, float deadzone) {
+  if (fabs(rate) < deadzone) {
+    return 0.0f;
+  }
+
+  if (rate > 0.0f) {
+    return rate - deadzone;
+  }
+
+  return rate + deadzone;
+}
+
 uint8_t convertAngleToLeftStickRange(float angleDegrees) {
   long mapped = map(constrain(angleDegrees, -90.0f, 90.0f), -90, 90, hidLeftMin, hidLeftMax);
   return (uint8_t)constrain(mapped, hidLeftMin, hidLeftMax);
@@ -330,4 +403,27 @@ uint8_t convertAngleToLeftStickRange(float angleDegrees) {
 int8_t convertPotToRightStickRange(int potRaw) {
   long mapped = map(constrain(potRaw, 0, 4095), 0, 4095, hidRightMin, hidRightMax);
   return (int8_t)constrain(mapped, hidRightMin, hidRightMax);
+}
+
+int8_t convertGyroToRightStickRange(float gyroDps) {
+  float clamped = constrain(gyroDps, -gyroSendRangeDps, gyroSendRangeDps);
+  long mapped = map((long)clamped, (long)-gyroSendRangeDps, (long)gyroSendRangeDps, hidRightMin, hidRightMax);
+  return (int8_t)constrain(mapped, hidRightMin, hidRightMax);
+}
+
+float chooseFlipGyroDps(float gyroXDps, float gyroYDps, float gyroZDps) {
+  switch (flipGyroAxis) {
+    case 'y':
+    case 'Y':
+      return gyroYDps;
+
+    case 'z':
+    case 'Z':
+      return gyroZDps;
+
+    case 'x':
+    case 'X':
+    default:
+      return gyroXDps;
+  }
 }

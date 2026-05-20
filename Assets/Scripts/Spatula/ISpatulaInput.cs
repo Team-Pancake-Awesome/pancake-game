@@ -1,7 +1,7 @@
 public struct SpatulaControlState
 {
-    public float PotValue;
     public float HorizontalInput;
+    public float PotValue;
     public float PitchNormalized;
     public bool LockPressed;
     public bool LockHeld;
@@ -9,6 +9,11 @@ public struct SpatulaControlState
     public bool SnapRequested;
     public bool FlipTriggered;
     public float FlipStrength;
+
+    // Debug/telemetry values supplied by the active input source.
+    // These are intentionally optional so older/debug inputs can ignore them.
+    public float FlipMotion;
+    public float FlipRoll;
 }
 
 public interface ISpatulaInput

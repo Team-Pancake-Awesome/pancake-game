@@ -5,8 +5,8 @@ using UnityEngine.InputSystem.Controls;
 public class JoystickSpatulaInputTuned : MonoBehaviour, ISpatulaInput, ISpatulaInputBackgroundActivity
 {
     [Header("Device Selection")]
-    [Tooltip("Optional filter to help identify your custom device by name or display name.")]
-    public string deviceNameContains = "TinyUSB";
+    [Tooltip("Optional filter to help identify your custom device by name or display name. Leave blank to use the current joystick.")]
+    public string deviceNameContains = "";
 
     [Header("Debug")]
     [Tooltip("Allows keyboard lock input as a debug fallback while using HID")]
@@ -30,8 +30,17 @@ public class JoystickSpatulaInputTuned : MonoBehaviour, ISpatulaInput, ISpatulaI
     [Tooltip("Extra trim to apply after HID decoding.")]
     public float rollOffset = 0f;
 
-    [Tooltip("Specific axis control name to use for potentiometer, e.g. 'z' or 'rz'. Leave blank to use fallbacks.")]
-    public string potControlName = "z";
+    [Header("Gyro Mapping")]
+    [Tooltip("Axis carrying gyro flip speed from the Arduino sketch. With the refactor sketch this should usually be 'z'.")]
+    public string gyroControlName = "z";
+    [Tooltip("How many degrees/second the full HID gyro axis represents.")]
+    public float gyroAxisRangeDegreesPerSecond = 1200f;
+    [Tooltip("Invert after decoding if the correct flip motion has the wrong sign.")]
+    public bool invertGyro = false;
+
+    [Header("Pot / Burner Mapping")]
+    [Tooltip("Specific axis control name to use for potentiometer, e.g. 'rz'. Leave blank to use fallbacks.")]
+    public string potControlName = "rz";
     [Tooltip("Use joystick trigger as the potentiometer value when available.")]
     public bool useTriggerForPot = true;
     [Tooltip("Observed minimum raw value for the potentiometer axis.")]
@@ -55,15 +64,22 @@ public class JoystickSpatulaInputTuned : MonoBehaviour, ISpatulaInput, ISpatulaI
     public float maxPitchInput = -40f;
     public float rollDeadzone = 2f;
 
-    [Header("Gesture Tuning")]
-    public bool enableFlipDetection = false;
+    [Header("Flip Detection")]
+    public bool enableFlipDetection = true;
+    public SpatulaFlipDetectionMode flipDetectionMode = SpatulaFlipDetectionMode.GestureWindowGyro;
+    public SpatulaFlipGestureDetector gestureDetector = new SpatulaFlipGestureDetector();
+
+    [Header("Legacy Gesture Tuning")]
+    [Tooltip("Only used when Flip Detection Mode is LegacyPitchVelocity.")]
     public float pitchFlipVelocityThreshold = 90f;
-    [Tooltip("Minimum per-packet pitch change in degrees required before a flip can trigger")]
+    [Tooltip("Only used when Flip Detection Mode is LegacyPitchVelocity. Minimum per-packet pitch change in degrees required before a flip can trigger.")]
     public float pitchDeltaThreshold = 2.5f;
     [Range(0.01f, 1f)]
-    [Tooltip("Smoothing for pitch velocity. Lower values reduce noise but feel less snappy")]
+    [Tooltip("Smoothing for pitch velocity. Lower values reduce noise but feel less snappy.")]
     public float pitchVelocitySmoothing = 0.25f;
+    [Tooltip("Only used as a hard blocker in LegacyPitchVelocity mode.")]
     public float rollLimit = 45f;
+    [Tooltip("Only used in LegacyPitchVelocity mode. GestureWindow modes use the detector cooldown.")]
     public float cooldown = 0.35f;
 
     [Header("Gesture Debug")]
@@ -80,6 +96,10 @@ public class JoystickSpatulaInputTuned : MonoBehaviour, ISpatulaInput, ISpatulaI
     public bool debugAnyButtonPressed;
     public string debugPressedButtonName;
     public string debugPotControlName;
+    public string debugGyroControlName;
+    public float debugRawGyroAxis;
+    public float debugSignedFlipMotion;
+    public string debugFlipMode;
 
     private float lastFlipTime = -999f;
     private bool lastActionButtonHeld;
@@ -88,8 +108,14 @@ public class JoystickSpatulaInputTuned : MonoBehaviour, ISpatulaInput, ISpatulaI
     private float latestPitchDelta;
     private float filteredPitchVelocity;
     private float nextLogTime;
+    private SpatulaFlipDetectionMode lastDetectionMode;
 
     public bool IsBackgroundActivityEnabled { get; set; } = true;
+
+    void Awake()
+    {
+        lastDetectionMode = flipDetectionMode;
+    }
 
     public bool TryGetControlState(out SpatulaControlState state)
     {
@@ -100,6 +126,12 @@ public class JoystickSpatulaInputTuned : MonoBehaviour, ISpatulaInput, ISpatulaI
             isConnected = false;
             connectedDeviceName = string.Empty;
             return false;
+        }
+
+        if (lastDetectionMode != flipDetectionMode)
+        {
+            gestureDetector.ResetRuntimeState();
+            lastDetectionMode = flipDetectionMode;
         }
 
         Joystick joystick = FindPreferredJoystick();
@@ -113,6 +145,7 @@ public class JoystickSpatulaInputTuned : MonoBehaviour, ISpatulaInput, ISpatulaI
         stick = ApplyStickDeadzone(stick);
 
         float potValue = ReadPotValue(joystick);
+        float gyroDegreesPerSecond = ReadGyroDegreesPerSecond(joystick);
         bool currentActionButtonHeld = ReadActionButton(joystick);
 
         float pitch = stick.y * hidPitchRange + pitchOffset;
@@ -122,32 +155,16 @@ public class JoystickSpatulaInputTuned : MonoBehaviour, ISpatulaInput, ISpatulaI
         float roll = stick.x * hidRollRange + rollOffset;
         float currentRoll = invertRoll ? -roll : roll;
 
-        if (lastPitchSampleTime < 0f)
-        {
-            lastPitchSample = pitch;
-            lastPitchSampleTime = Time.time;
-            latestPitchDelta = 0f;
-            filteredPitchVelocity = 0f;
-        }
-        else
-        {
-            float sampleDeltaTime = Mathf.Max(0.0001f, Time.time - lastPitchSampleTime);
-            latestPitchDelta = pitch - lastPitchSample;
-            float rawPitchVelocity = latestPitchDelta / sampleDeltaTime;
-            float smoothing = Mathf.Clamp01(pitchVelocitySmoothing);
-            filteredPitchVelocity = Mathf.Lerp(filteredPitchVelocity, rawPitchVelocity, smoothing);
+        UpdatePitchVelocity(pitch);
 
-            lastPitchSample = pitch;
-            lastPitchSampleTime = Time.time;
-        }
-
-        debugGyroY = 0f;
+        debugGyroY = gyroDegreesPerSecond;
         debugPitch = pitch;
         debugPitchDelta = latestPitchDelta;
         debugPitchVelocity = filteredPitchVelocity;
         debugRoll = currentRoll;
         debugStick = stick;
         debugTrigger = joystick.trigger != null ? joystick.trigger.ReadValue() : 0f;
+        debugFlipMode = flipDetectionMode.ToString();
 
         state.PotValue = Mathf.Clamp01(potValue);
         state.HorizontalInput = Mathf.Abs(currentRoll) > rollDeadzone ? currentRoll : 0f;
@@ -169,36 +186,30 @@ public class JoystickSpatulaInputTuned : MonoBehaviour, ISpatulaInput, ISpatulaI
         {
             bool flipArmHeld = currentActionButtonHeld || keyboardHeld;
 
-            // Your current HID setup reports upward spatula motion as NEGATIVE pitch.
-            // So a real upward flick should have negative pitch velocity and negative pitch delta.
-            bool isFlickingUp = filteredPitchVelocity <= -pitchFlipVelocityThreshold;
-            bool pitchDeltaOK = latestPitchDelta <= -pitchDeltaThreshold;
-
-            // Twisting/rolling should NOT count as a flip.
-            bool rollOK = Mathf.Abs(currentRoll) <= rollLimit;
-
-            bool cooldownOK = (Time.time - lastFlipTime) >= cooldown;
-
-            if (flipArmHeld && isFlickingUp && pitchDeltaOK && rollOK && cooldownOK)
+            if (flipDetectionMode == SpatulaFlipDetectionMode.LegacyPitchVelocity)
             {
-                lastFlipTime = Time.time;
+                TryLegacyFlipDetection(ref state, flipArmHeld, currentRoll);
+            }
+            else
+            {
+                float rawMotion = flipDetectionMode == SpatulaFlipDetectionMode.GestureWindowGyro
+                    ? gyroDegreesPerSecond
+                    : filteredPitchVelocity;
 
-                float upwardVelocity = Mathf.Abs(filteredPitchVelocity);
-
-                // Keep strength intentionally tame. We do not want every valid flip to launch the pancake into orbit.
-                float strength = Mathf.Clamp(
-                    upwardVelocity / Mathf.Max(0.1f, pitchFlipVelocityThreshold),
-                    0.75f,
-                    1.35f
-                );
-
-                Debug.Log(
-                    $"FLIP DETECTED | Velocity: {filteredPitchVelocity:F1} | Delta: {latestPitchDelta:F1} | Roll: {currentRoll:F1} | Strength: {strength:F2}"
-                );
-
-                state.FlipTriggered = true;
-                state.SnapRequested = true;
-                state.FlipStrength = strength;
+                if (gestureDetector.TryDetect(
+                        rawMotion,
+                        currentRoll,
+                        flipArmHeld,
+                        flipDetectionMode,
+                        out SpatulaFlipGestureResult result))
+                {
+                    state.FlipTriggered = true;
+                    state.SnapRequested = true;
+                    state.FlipStrength = result.Strength;
+                    state.FlipMotion = result.PeakMotion;
+                    state.FlipRoll = result.RollAtPeak;
+                    debugSignedFlipMotion = result.SignedMotion;
+                }
             }
         }
 
@@ -208,18 +219,75 @@ public class JoystickSpatulaInputTuned : MonoBehaviour, ISpatulaInput, ISpatulaI
             Debug.Log(
                 "[JoystickSpatulaInputTuned] " +
                 connectedDeviceName +
+                " | mode: " + debugFlipMode +
                 " | stick: " + stick +
                 " | trigger: " + debugTrigger.ToString("F2") +
                 " | pot: " + state.PotValue.ToString("F2") +
                 " | potRaw: " + debugPotAxis.ToString("F2") +
                 " | potControl: " + debugPotControlName +
+                " | gyro: " + gyroDegreesPerSecond.ToString("F1") +
+                " | gyroRaw: " + debugRawGyroAxis.ToString("F2") +
+                " | gyroControl: " + debugGyroControlName +
                 " | button: " + currentActionButtonHeld +
                 " | pressedButton: " + debugPressedButtonName +
                 " | pitch: " + pitch.ToString("F1") +
+                " | pitchVel: " + filteredPitchVelocity.ToString("F1") +
                 " | roll: " + currentRoll.ToString("F1"));
         }
 
         return true;
+    }
+
+    void UpdatePitchVelocity(float pitch)
+    {
+        if (lastPitchSampleTime < 0f)
+        {
+            lastPitchSample = pitch;
+            lastPitchSampleTime = Time.time;
+            latestPitchDelta = 0f;
+            filteredPitchVelocity = 0f;
+            return;
+        }
+
+        float sampleDeltaTime = Mathf.Max(0.0001f, Time.time - lastPitchSampleTime);
+        latestPitchDelta = pitch - lastPitchSample;
+        float rawPitchVelocity = latestPitchDelta / sampleDeltaTime;
+        float smoothing = Mathf.Clamp01(pitchVelocitySmoothing);
+        filteredPitchVelocity = Mathf.Lerp(filteredPitchVelocity, rawPitchVelocity, smoothing);
+
+        lastPitchSample = pitch;
+        lastPitchSampleTime = Time.time;
+    }
+
+    void TryLegacyFlipDetection(ref SpatulaControlState state, bool flipArmHeld, float currentRoll)
+    {
+        // Existing behavior preserved as a runtime fallback.
+        bool isFlickingUp = filteredPitchVelocity <= -pitchFlipVelocityThreshold;
+        bool pitchDeltaOK = latestPitchDelta <= -pitchDeltaThreshold;
+        bool rollOK = Mathf.Abs(currentRoll) <= rollLimit;
+        bool cooldownOK = (Time.time - lastFlipTime) >= cooldown;
+
+        if (flipArmHeld && isFlickingUp && pitchDeltaOK && rollOK && cooldownOK)
+        {
+            lastFlipTime = Time.time;
+
+            float upwardVelocity = Mathf.Abs(filteredPitchVelocity);
+            float strength = Mathf.Clamp(
+                upwardVelocity / Mathf.Max(0.1f, pitchFlipVelocityThreshold),
+                0.75f,
+                1.35f
+            );
+
+            Debug.Log(
+                $"FLIP DETECTED [LEGACY] | Velocity: {filteredPitchVelocity:F1} | Delta: {latestPitchDelta:F1} | Roll: {currentRoll:F1} | Strength: {strength:F2}"
+            );
+
+            state.FlipTriggered = true;
+            state.SnapRequested = true;
+            state.FlipStrength = strength;
+            state.FlipMotion = upwardVelocity;
+            state.FlipRoll = currentRoll;
+        }
     }
 
     Joystick FindPreferredJoystick()
@@ -261,26 +329,16 @@ public class JoystickSpatulaInputTuned : MonoBehaviour, ISpatulaInput, ISpatulaI
         debugPotAxis = 0f;
         debugPotControlName = string.Empty;
 
-        if (!string.IsNullOrWhiteSpace(potControlName))
+        if (TryReadAxisByName(joystick, potControlName, out float explicitValue))
         {
-            for (int i = 0; i < joystick.allControls.Count; i++)
-            {
-                if (joystick.allControls[i] is not AxisControl axis)
-                    continue;
+            debugPotAxis = explicitValue;
+            debugPotControlName = potControlName;
 
-                if (!string.Equals(axis.name, potControlName, System.StringComparison.OrdinalIgnoreCase))
-                    continue;
+            float normalized = Mathf.InverseLerp(potAxisMin, potAxisMax, explicitValue);
+            if (invertPot)
+                normalized = 1f - normalized;
 
-                float value = axis.ReadValue();
-                debugPotAxis = value;
-                debugPotControlName = axis.name;
-
-                float normalized = Mathf.InverseLerp(potAxisMin, potAxisMax, value);
-                if (invertPot)
-                    normalized = 1f - normalized;
-
-                return Mathf.Clamp01(normalized);
-            }
+            return Mathf.Clamp01(normalized);
         }
 
         if (useTriggerForPot && joystick.trigger != null)
@@ -299,7 +357,7 @@ public class JoystickSpatulaInputTuned : MonoBehaviour, ISpatulaInput, ISpatulaI
             if (joystick.allControls[i] is not AxisControl axis)
                 continue;
 
-            if (axis.name == "x" || axis.name == "y")
+            if (axis.name == "x" || axis.name == "y" || axis.name == gyroControlName)
                 continue;
 
             float value = axis.ReadValue();
@@ -317,6 +375,71 @@ public class JoystickSpatulaInputTuned : MonoBehaviour, ISpatulaInput, ISpatulaI
         }
 
         return Mathf.Clamp01(fallbackPotValue);
+    }
+
+    float ReadGyroDegreesPerSecond(Joystick joystick)
+    {
+        debugRawGyroAxis = 0f;
+        debugGyroControlName = string.Empty;
+
+        if (TryReadAxisByName(joystick, gyroControlName, out float explicitValue))
+        {
+            debugRawGyroAxis = explicitValue;
+            debugGyroControlName = gyroControlName;
+            float degreesPerSecond = explicitValue * gyroAxisRangeDegreesPerSecond;
+            return invertGyro ? -degreesPerSecond : degreesPerSecond;
+        }
+
+        string[] fallbackNames = { "rx", "ry", "z", "rz", "slider", "slider1", "slider2" };
+        for (int i = 0; i < fallbackNames.Length; i++)
+        {
+            string fallbackName = fallbackNames[i];
+
+            if (fallbackName == "x" || fallbackName == "y" || fallbackName == potControlName)
+            {
+                continue;
+            }
+
+            if (!TryReadAxisByName(joystick, fallbackName, out float value))
+            {
+                continue;
+            }
+
+            debugRawGyroAxis = value;
+            debugGyroControlName = fallbackName;
+            float degreesPerSecond = value * gyroAxisRangeDegreesPerSecond;
+            return invertGyro ? -degreesPerSecond : degreesPerSecond;
+        }
+
+        return 0f;
+    }
+
+    bool TryReadAxisByName(Joystick joystick, string controlName, out float value)
+    {
+        value = 0f;
+
+        if (joystick == null || string.IsNullOrWhiteSpace(controlName))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < joystick.allControls.Count; i++)
+        {
+            if (joystick.allControls[i] is not AxisControl axis)
+            {
+                continue;
+            }
+
+            if (!string.Equals(axis.name, controlName, System.StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            value = Mathf.Clamp(axis.ReadValue(), -1f, 1f);
+            return true;
+        }
+
+        return false;
     }
 
     bool ReadActionButton(Joystick joystick)

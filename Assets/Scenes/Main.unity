@@ -21041,8 +21041,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   deviceNameContains: 
   enableKeyboardLockFallback: 0
-  logLiveValues: 1
-  logInterval: 0.25
+  logLiveValues: 0
+  logInterval: 0.15
   invertRoll: 1
   invertPitch: 1
   hidPitchRange: 90
@@ -21050,6 +21050,9 @@ MonoBehaviour:
   stickDeadzone: 0.12
   pitchOffset: 0
   rollOffset: 0
+  gyroControlName: z
+  gyroAxisRangeDegreesPerSecond: 1200
+  invertGyro: 0
   potControlName: rz
   useTriggerForPot: 0
   potAxisMin: -0.85
@@ -21063,6 +21066,26 @@ MonoBehaviour:
   maxPitchInput: -90
   rollDeadzone: 2
   enableFlipDetection: 1
+  flipDetectionMode: 2
+  gestureDetector:
+    validFlipDirection: -1
+    minimumFlipSpeed: 165
+    fullPowerFlipSpeed: 450
+    strengthLookbackSeconds: 0.14
+    cooldown: 0.35
+    waitForPeakBeforeLaunch: 1
+    confirmationWindowSeconds: 0.08
+    cancelCandidateWhenArmReleased: 0
+    lightStrength: 0.7
+    maxStrength: 1.77
+    rollBlocksFlip: 0
+    rollBlockLimit: 85
+    rollCleanLimit: 45
+    rollPenaltyAt: 90
+    maxRollStrengthPenalty: 0.12
+    logDetectedFlips: 0
+    logRejectedCandidates: 0
+    rejectedLogInterval: 0.25
   pitchFlipVelocityThreshold: 280
   pitchDeltaThreshold: 10
   pitchVelocitySmoothing: 0.18
@@ -21081,6 +21104,10 @@ MonoBehaviour:
   debugAnyButtonPressed: 0
   debugPressedButtonName: 
   debugPotControlName: 
+  debugGyroControlName: 
+  debugRawGyroAxis: 0
+  debugSignedFlipMotion: 0
+  debugFlipMode: 
 --- !u!114 &2060293709
 MonoBehaviour:
   m_ObjectHideFlags: 0
